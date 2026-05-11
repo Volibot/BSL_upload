@@ -1072,6 +1072,13 @@
   });
 
   // ── Init ──────────────────────────────────────────────────────────────
+  // Restore cached recruiter email
+  const _cachedEmail = localStorage.getItem("recruiterEmail");
+  if (_cachedEmail) recruiterEl.value = _cachedEmail;
+  recruiterEl.addEventListener("change", () => {
+    if (recruiterEl.value.includes("@")) localStorage.setItem("recruiterEmail", recruiterEl.value.trim());
+  });
+
   loadJRMaster();
   updateButtons();
 </script>
