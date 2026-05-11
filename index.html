@@ -585,26 +585,22 @@
     return [caps.slice(0, -1).join(" "), caps[caps.length - 1]];
   }
 
-  function extractName(text, email, fileName = "") {
+  function extractName(text, email) {
     const lines = text.split("\n").map(l => l.trim()).filter(l => l);
     const emailUser = email ? email.split("@")[0].toLowerCase().replace(/[^a-z]/g, "") : "";
-    const fileWords = new Set(
-      fileName.replace(/\.[^.]+$/, "").replace(/[_\-\s]+/g, " ").split(" ")
-        .map(w => w.toLowerCase()).filter(w => /^[a-z]+$/.test(w) && !INVALID_WORDS.has(w))
-    );
     const candidates = [];
 
-    lines.slice(0, 20).forEach((line, idx) => {
+    lines.slice(0, 30).forEach((line, idx) => {
       const words = _cleanLine(line).split(/\s+/).filter(w => w);
       if (_isValidNameWords(words)) candidates.push({ words, position: idx });
     });
 
+    // also check lines adjacent to email or phone — name often sits right above contact info
     lines.forEach((line, i) => {
-      if (line.includes("@")) {
-        (i > 0 ? [lines[i - 1], line] : [line]).forEach(target => {
-          const words = _cleanLine(target).split(/\s+/).filter(w => w);
-          if (_isValidNameWords(words)) candidates.push({ words, position: i });
-        });
+      const isContact = line.includes("@") || /\+?\d[\d\s\-]{8,}/.test(line);
+      if (isContact && i > 0) {
+        const words = _cleanLine(lines[i - 1]).split(/\s+/).filter(w => w);
+        if (_isValidNameWords(words)) candidates.push({ words, position: i - 1 });
       }
     });
 
@@ -616,8 +612,6 @@
       if (position < 5) score += 2; else if (position < 10) score += 1;
       if (words.length >= 2 && words.length <= 3) score += 2;
       if (emailUser && words.some(w => emailUser.includes(w.toLowerCase()))) score += 4;
-      if (fileWords.size && words.every(w => fileWords.has(w.toLowerCase()))) score += 4;
-      else if (fileWords.size && words.some(w => fileWords.has(w.toLowerCase()))) score += 2;
       if (score > bestScore) { bestScore = score; best = words; }
     }
 
@@ -651,11 +645,7 @@
     const text  = await extractTextFromFile(file);
     const email = extractEmail(text);
     const phone = extractPhone(text);
-    let { first, last } = text.trim() ? extractName(text, email, file.name) : { first: "", last: "" };
-    if (!first && !last) {
-      const fb = nameFromFilename(file.name);
-      first = fb.first; last = fb.last;
-    }
+    const { first, last } = text.trim() ? extractName(text, email) : { first: "", last: "" };
     return { first_name: first, last_name: last, email, phone };
   }
 
