@@ -689,6 +689,8 @@
       // scanned PDF — no text layer, fall back to filename
       ({ first, last } = nameFromFilename(file.name));
     }
+    // last resort: if all parsing failed (e.g. garbled scan), use filename
+    if (!first && !last) ({ first, last } = nameFromFilename(file.name));
     return { first_name: first, last_name: last, email, phone };
   }
 
