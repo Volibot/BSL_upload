@@ -99,7 +99,7 @@
     /* JR info */
     #jr-info {
       display: none; background: #eff6ff; border-left: 3px solid var(--accent);
-      border-radius: 6px; padding: 10px 14px; font-size: 13px;
+      border-radius: 6px; padding: 10px 14px; font-size: 13px; white-space: pre-wrap;
       color: #1e40af; margin-bottom: 1rem;
     }
 
@@ -885,12 +885,25 @@
     const info = document.getElementById("jr-info");
     if (jr) {
       const skill   = esc(jr.skill_name || "—");
-      const details = esc((jr.job_details || "No details").substring(0, 140));
-      info.innerHTML = `<strong>Skill:</strong> ${skill} &nbsp;·&nbsp; <strong>Details:</strong> ${details}…`;
+      const fullJD  = esc(jr.job_details || "No details");
+      const preview = esc((jr.job_details || "No details").substring(0, 140));
+      const hasMore = (jr.job_details || "").length > 140;
+      info.innerHTML = `
+        <strong>Skill:</strong> ${skill}<br>
+        <strong>Job Details:</strong>
+        <span id="jd-preview">${preview}${hasMore ? "…" : ""}</span>
+        <span id="jd-full" style="display:none">${fullJD}</span>
+        ${hasMore ? `<a href="#" id="jd-toggle" style="margin-left:6px;font-size:12px;color:var(--accent)">Show more</a>` : ""}
+      `;
       info.style.display = "block";
-      // Auto-fill recruiter email from JR master if field is empty
-      if (!recruiterEl.value && (jr.recruiter_email || jr.client_recruiter_email)) {
-        recruiterEl.value = jr.recruiter_email || jr.client_recruiter_email || "";
+      if (hasMore) {
+        document.getElementById("jd-toggle").addEventListener("click", e => {
+          e.preventDefault();
+          const expanded = document.getElementById("jd-full").style.display !== "none";
+          document.getElementById("jd-preview").style.display = expanded ? "" : "none";
+          document.getElementById("jd-full").style.display    = expanded ? "none" : "";
+          document.getElementById("jd-toggle").textContent    = expanded ? "Show more" : "Show less";
+        });
       }
     } else {
       info.style.display = "none";
