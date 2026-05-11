@@ -368,6 +368,7 @@
   const GH_REPO      = "Volibot/BSL_upload";
   const GH_TOKEN     = "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";
   const GH_EVENT     = "resume-form-submitted";
+  const GEMINI_KEY   = "AIzaSyDKFPtFIhDj-i38HhONVEDnl2UlGmmU_4E";
   // ══════════════════════════════════════════════════════════════════════
 
   // ── State ─────────────────────────────────────────────────────────────
@@ -641,11 +642,47 @@
     return { first: caps.slice(0, -1).join(" "), last: caps[caps.length - 1] };
   }
 
+  async function extractNameWithAI(text) {
+    try {
+      const snippet = text.slice(0, 2000);
+      const res = await fetch(
+        `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_KEY}`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            contents: [{ parts: [{ text:
+              `Extract the candidate's full name from this resume text. Return only the name (first and last), nothing else. If you cannot determine the name, return an empty string.\n\n${snippet}`
+            }] }],
+            generationConfig: { temperature: 0, maxOutputTokens: 20 }
+          })
+        }
+      );
+      if (!res.ok) return "";
+      const data = await res.json();
+      const name = (data?.candidates?.[0]?.content?.parts?.[0]?.text || "").trim();
+      // reject if Gemini returned something that looks like an explanation
+      if (name.length > 60 || name.includes("\n") || name.toLowerCase().startsWith("i ")) return "";
+      return name;
+    } catch { return ""; }
+  }
+
   async function parseResume(file) {
     const text  = await extractTextFromFile(file);
     const email = extractEmail(text);
     const phone = extractPhone(text);
-    const { first, last } = text.trim() ? extractName(text, email) : { first: "", last: "" };
+
+    let first = "", last = "";
+    if (text.trim()) {
+      const aiName = await extractNameWithAI(text);
+      if (aiName) {
+        const parts = aiName.trim().split(/\s+/);
+        first = parts.slice(0, -1).join(" ") || parts[0];
+        last  = parts.length > 1 ? parts[parts.length - 1] : "";
+      } else {
+        ({ first, last } = extractName(text, email));
+      }
+    }
     return { first_name: first, last_name: last, email, phone };
   }
 
