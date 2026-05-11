@@ -328,7 +328,7 @@
 
     <div class="info-note" style="margin-top:1rem;">
       <span class="note-icon">ℹ️</span>
-      <span>Resumes are parsed directly in your browser using Claude AI — supports all formats
+      <span>Resumes are parsed directly in your browser — supports all formats
       including scanned PDFs and image resumes. Review and edit any field before submitting.
       SAP upload runs automatically in the background.</span>
     </div>
@@ -433,6 +433,14 @@
     "module","technical","current","past","present","from","to","date",
     "with","at","in","for","of","and","the","by","as","on","an","or",
     "is","was","are","has","have","had","been","be","do","does","did",
+    // company/section words often mistaken for names
+    "erp","sap","crm","implementations","implementation","systems","solutions",
+    "services","consulting","technologies","technology","software","india",
+    "pvt","ltd","llc","inc","corp","limited","private","global","group",
+    "enterprises","associates","analyst","developer","engineer","manager",
+    "director","consultant","specialist","executive","officer","head",
+    // job portals / filename prefixes
+    "naukri","indeed","monster","shine","freshersworld","hirist","instahyre",
   ]);
 
   function _cleanPrivateUnicode(text) {
@@ -577,9 +585,13 @@
     return [caps.slice(0, -1).join(" "), caps[caps.length - 1]];
   }
 
-  function extractName(text, email) {
+  function extractName(text, email, fileName = "") {
     const lines = text.split("\n").map(l => l.trim()).filter(l => l);
     const emailUser = email ? email.split("@")[0].toLowerCase().replace(/[^a-z]/g, "") : "";
+    const fileWords = new Set(
+      fileName.replace(/\.[^.]+$/, "").replace(/[_\-\s]+/g, " ").split(" ")
+        .map(w => w.toLowerCase()).filter(w => /^[a-z]+$/.test(w) && !INVALID_WORDS.has(w))
+    );
     const candidates = [];
 
     lines.slice(0, 20).forEach((line, idx) => {
@@ -603,7 +615,9 @@
       let score = 2;
       if (position < 5) score += 2; else if (position < 10) score += 1;
       if (words.length >= 2 && words.length <= 3) score += 2;
-      if (emailUser && words.some(w => emailUser.includes(w.toLowerCase()))) score += 3;
+      if (emailUser && words.some(w => emailUser.includes(w.toLowerCase()))) score += 4;
+      if (fileWords.size && words.every(w => fileWords.has(w.toLowerCase()))) score += 4;
+      else if (fileWords.size && words.some(w => fileWords.has(w.toLowerCase()))) score += 2;
       if (score > bestScore) { bestScore = score; best = words; }
     }
 
@@ -612,8 +626,21 @@
   }
 
   function nameFromFilename(fileName) {
-    const base  = fileName.replace(/\.[^.]+$/, "").replace(/[_\-]+/g, " ").trim();
-    const words = base.split(/\s+/).filter(w => /^[a-zA-Z]+$/.test(w) && !INVALID_WORDS.has(w.toLowerCase()));
+    let base = fileName.replace(/\.[^.]+$/, "");  // strip extension
+    base = base.replace(/\[.*?\]/g, " ");          // strip [12y_0m] style
+    base = base.replace(/\(.*?\)/g, " ");          // strip (1) style
+    base = base.replace(/([a-z])([A-Z])/g, "$1 $2");         // camelCase split
+    base = base.replace(/([A-Z]{2,})([A-Z][a-z])/g, "$1 $2"); // ACRONYMWord split
+    base = base.replace(/[_\-]+/g, " ").trim();
+
+    const words = base.split(/\s+/)
+      .map(w => w.replace(/[^a-zA-Z]/g, ""))       // strip digits/special per word
+      .filter(w =>
+        w.length >= 1 &&
+        !(w.length === 1 && w === w.toLowerCase()) && // drop single lowercase (e.g. leading 'h')
+        !INVALID_WORDS.has(w.toLowerCase())
+      );
+
     if (!words.length) return { first: "", last: "" };
     const caps = words.slice(0, 4).map(w => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase());
     if (caps.length === 1) return { first: caps[0], last: "" };
@@ -624,7 +651,7 @@
     const text  = await extractTextFromFile(file);
     const email = extractEmail(text);
     const phone = extractPhone(text);
-    let { first, last } = text.trim() ? extractName(text, email) : { first: "", last: "" };
+    let { first, last } = text.trim() ? extractName(text, email, file.name) : { first: "", last: "" };
     if (!first && !last) {
       const fb = nameFromFilename(file.name);
       first = fb.first; last = fb.last;
