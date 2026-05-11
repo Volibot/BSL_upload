@@ -7,8 +7,18 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet" />
 
-  <!-- mammoth.js — DOCX/DOC text extraction in browser -->
+  <!-- mammoth.js — DOCX text extraction in browser -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.6.0/mammoth.browser.min.js"></script>
+  <!-- pdf.js — PDF text extraction in browser -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+  <script>
+    if (typeof pdfjsLib !== "undefined") {
+      pdfjsLib.GlobalWorkerOptions.workerSrc =
+        "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
+    }
+  </script>
+  <!-- tesseract.js — OCR fallback for scanned PDFs -->
+  <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
 
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -278,11 +288,11 @@
 
     <div class="drop-zone" id="dropZone">
       <input type="file" id="fileInput"
-             accept=".pdf,.docx,.doc,.jpg,.jpeg,.png,.webp,.txt,.rtf"
+             accept=".pdf,.docx,.doc,.txt"
              multiple />
       <span class="drop-icon">📂</span>
       <p class="drop-label">Drop resumes here or click to browse</p>
-      <p class="drop-sub">PDF · DOCX · DOC · JPG · PNG · WEBP · TXT — multiple files accepted</p>
+      <p class="drop-sub">PDF · DOCX · DOC · TXT — multiple files accepted</p>
     </div>
 
     <div class="action-bar">
@@ -351,14 +361,13 @@
 
 <script>
   // ╔══════════════════════════════════════════════════════════════════════╗
-  // ║  CONFIGURATION — fill these in, then upload index.html to GoDaddy  ║
+  // ║  CONFIGURATION                                                       ║
   // ╚══════════════════════════════════════════════════════════════════════╝
-  const SUPABASE_URL  = "https://YOUR_PROJECT.supabase.co";
-  const SUPABASE_KEY  = "YOUR_SERVICE_ROLE_KEY";   // Settings → API → service_role
-  const GEMINI_KEY    = "YOUR_GEMINI_API_KEY";     // aistudio.google.com → Get API key (free)
-  const GH_REPO       = "your-org/your-repo";      // e.g. "volibits/sap-uploader"
-  const GH_TOKEN      = "ghp_YOUR_GITHUB_PAT";     // repo + workflow scopes
-  const GH_EVENT      = "resume-form-submitted";
+  const SUPABASE_URL = "https://uwwzgoqxtzvbcxcxmcvn.supabase.co";
+  const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InV3d3pnb3F4dHp2YmN4Y3htY3ZuIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc1NDk5ODc3NCwiZXhwIjoyMDcwNTc0Nzc0fQ.I4Ob5tRzIriubOjSAXnOwcnf-2R2oUhGFYCe0vYfynU";
+  const GH_REPO      = "vamshipriya14/sap-candidate-uploader";
+  const GH_TOKEN     = "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";
+  const GH_EVENT     = "resume-form-submitted";
   // ══════════════════════════════════════════════════════════════════════
 
   // ── State ─────────────────────────────────────────────────────────────
@@ -412,116 +421,215 @@
   }
 
   // ── File type detection ───────────────────────────────────────────────
-  const ACCEPT_RE = /\.(pdf|docx|doc|jpg|jpeg|png|webp|txt|rtf)$/i;
+  const ACCEPT_RE = /\.(pdf|docx|doc|txt)$/i;
 
-  function fileExt(file) {
-    return (file.name.split(".").pop() || "").toLowerCase();
+  // ── Resume parsing — complete JS port of resume_parser.py ───────────
+
+  const INVALID_WORDS = new Set([
+    "resume","cv","professional","summary","profile","skills","experience",
+    "business","operations","management","core","competencies","personal",
+    "details","id","objective","education","contact","address","declaration",
+    "references","linkedin","github","portfolio","trained","secondary",
+    "module","technical","current","past","present","from","to","date",
+    "with","at","in","for","of","and","the","by","as","on","an","or",
+    "is","was","are","has","have","had","been","be","do","does","did",
+  ]);
+
+  function _cleanPrivateUnicode(text) {
+    // Remove Wingdings/symbol bullets (U+E000–U+F8FF) that appear in some PDFs
+    return text.replace(/[-]/g, "\n");
   }
 
-  // ── Base64 (chunked to avoid stack overflow on large files) ───────────
-  function arrayBufferToBase64(buf) {
-    const bytes = new Uint8Array(buf);
-    let binary = "";
-    const CHUNK = 8192;
-    for (let i = 0; i < bytes.length; i += CHUNK) {
-      binary += String.fromCharCode(...bytes.subarray(i, i + CHUNK));
+  function _shouldTryOcr(text) {
+    return text.replace(/\s+/g, " ").trim().length < 50;
+  }
+
+  async function _ocrPdfText(file) {
+    if (typeof Tesseract === "undefined") return "";
+    try {
+      const buf     = await file.arrayBuffer();
+      const pdf     = await pdfjsLib.getDocument({ data: buf }).promise;
+      const parts   = [];
+      const maxPages = Math.min(pdf.numPages, 5);
+      for (let i = 1; i <= maxPages; i++) {
+        const page   = await pdf.getPage(i);
+        const vp     = page.getViewport({ scale: 2.0 });
+        const canvas = document.createElement("canvas");
+        canvas.width = vp.width; canvas.height = vp.height;
+        await page.render({ canvasContext: canvas.getContext("2d"), viewport: vp }).promise;
+        const blob   = await new Promise(r => canvas.toBlob(r, "image/png"));
+        const result = await Tesseract.recognize(blob, "eng", { logger: () => {} });
+        if (result.data.text.trim()) parts.push(result.data.text);
+      }
+      return parts.join("\n");
+    } catch (e) {
+      console.warn("OCR failed:", e);
+      return "";
     }
-    return btoa(binary);
   }
 
-  // ── SHA-256 hash → 8-char hex prefix (for storage dedup) ─────────────
-  async function fileHash(file) {
-    const buf  = await file.arrayBuffer();
-    const hash = await crypto.subtle.digest("SHA-256", buf);
-    return Array.from(new Uint8Array(hash))
-      .map(b => b.toString(16).padStart(2,"0"))
-      .join("").substring(0, 8);
-  }
+  async function extractTextFromFile(file) {
+    const ext = (file.name.split(".").pop() || "").toLowerCase();
 
-  // ── Extract readable text from a file (DOCX / DOC / TXT / RTF) ───────
-  async function extractText(file) {
-    const ext = fileExt(file);
+    if (ext === "pdf") {
+      try {
+        const buf = await file.arrayBuffer();
+        const pdf = await pdfjsLib.getDocument({ data: buf }).promise;
+        let text = "";
+        for (let i = 1; i <= Math.min(pdf.numPages, 10); i++) {
+          const page    = await pdf.getPage(i);
+          const content = await page.getTextContent();
+          let lastY = null;
+          for (const item of content.items) {
+            if (lastY !== null && Math.abs(item.transform[5] - lastY) > 2) text += "\n";
+            text  += item.str;
+            lastY  = item.transform[5];
+          }
+          text += "\n";
+        }
+        text = _cleanPrivateUnicode(text);
+        // OCR fallback for scanned PDFs — mirrors Python _should_try_ocr check
+        if (_shouldTryOcr(text)) {
+          const ocrText = await _ocrPdfText(file);
+          if (ocrText.trim().length > text.trim().length) text = ocrText;
+        }
+        return text.replace(/(\S)\n(\S)/g, "$1 $2");
+      } catch (e) {
+        console.warn("PDF extract failed:", e);
+        return "";
+      }
+    }
 
     if (ext === "docx" || ext === "doc") {
       try {
         const buf    = await file.arrayBuffer();
         const result = await mammoth.extractRawText({ arrayBuffer: buf });
-        return result.value || "";
-      } catch (e) {
-        return "";
-      }
+        const text   = _cleanPrivateUnicode(result.value || "");
+        return text.replace(/(\S)\n(\S)/g, "$1 $2");
+      } catch (e) { return ""; }
     }
 
-    if (ext === "txt" || ext === "rtf") {
-      try { return await file.text(); } catch (e) { return ""; }
+    if (ext === "txt") {
+      try { return _cleanPrivateUnicode(await file.text()); } catch (e) { return ""; }
     }
 
-    return "";  // PDF / images handled directly via Gemini API
+    return "";
   }
 
-  // ── Parse resume with Gemini API (free tier — 1500 req/day) ───────────
-  async function parseWithClaude(file) {   // name kept so rest of code is unchanged
-    const ext    = fileExt(file);
-    const prompt = 'Extract the candidate\'s contact info from this resume. '
-                 + 'Return ONLY valid JSON with exactly these keys: '
-                 + '{"first_name":"","last_name":"","email":"","phone":""}. '
-                 + 'Phone must include country code in E.164 format (e.g. +919876543210). '
-                 + 'Use empty string "" for any field not found. No extra text, no markdown, no code fences.';
+  function extractEmail(text) {
+    // Fix broken email across lines (mirrors Python)
+    text = text.replace(/(\w+)\.\s*\n\s*(\w+@)/g, "$1.$2");
+    // Normalize spaces around @ and . (mirrors Python)
+    text = text.replace(/(\S+)\s*@\s*(\S+)/g, "$1@$2");
+    text = text.replace(/(\S+)\s*\.\s*(\S+)/g, "$1.$2");
+    // Fix OCR misreads: comma instead of dot (mirrors Python)
+    text = text.replace(/(\w),(\w+@)/g, "$1.$2");
+    text = text.replace(/(@[A-Za-z0-9\-]+),([A-Za-z]{2,})/g, "$1.$2");
+    const matches = text.match(/[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}/g);
+    return matches ? matches[0] : "";
+  }
 
-    const GEMINI_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_KEY}`;
-
-    let parts;
-
-    // ── DOCX / DOC / TXT / RTF → extract text first, send as text ────
-    if (["docx","doc","txt","rtf"].includes(ext)) {
-      const text = await extractText(file);
-      if (!text.trim()) throw new Error("Could not extract text from file");
-      parts = [{ text: `${prompt}\n\nRESUME TEXT:\n${text.substring(0, 6000)}` }];
+  function extractPhone(text) {
+    // Remove date-like patterns (YYYY-MM-DD, DD/MM/YYYY) to avoid false positives
+    let t = text.replace(/\b\d{4}[-\/]\d{2}[-\/]\d{2}\b/g, "")
+                .replace(/\b\d{2}[-\/]\d{2}[-\/]\d{4}\b/g, "");
+    // Try India (IN region) first, then international — mirrors Python phonenumbers
+    const patterns = [
+      /\+91[\s-.]?\(?\d{4,5}\)?[\s-.]?\d{4,5}/,
+      /\+\d{1,3}[\s-.]?\(?\d{3,4}\)?[\s-.]?\d{3,4}[\s-.]?\d{3,4}/,
+      /(?<!\d)[6-9]\d{9}(?!\d)/,
+      /0[6-9]\d{9}/,
+      /(?<!\d)\d{10}(?!\d)/,
+    ];
+    for (const pattern of patterns) {
+      const m = t.match(pattern);
+      if (m) {
+        let phone = m[0].replace(/[\s\-.() ]/g, "");
+        if (!phone.startsWith("+")) {
+          if      (phone.startsWith("00"))                       phone = "+" + phone.slice(2);
+          else if (phone.startsWith("0") && phone.length === 11) phone = "+91" + phone.slice(1);
+          else if (phone.length === 10)                          phone = "+91" + phone;
+        }
+        if (phone.length >= 10 && phone.length <= 16) return phone;
+      }
     }
+    return "";
+  }
 
-    // ── PDF → send as inline base64 (handles digital + scanned) ───────
-    else if (ext === "pdf") {
-      const buf = await file.arrayBuffer();
-      const b64 = arrayBufferToBase64(buf);
-      parts = [
-        { inline_data: { mime_type: "application/pdf", data: b64 } },
-        { text: prompt }
-      ];
-    }
+  function _cleanLine(line) {
+    line = line.replace(/\S+@\S+/g, "");
+    line = line.replace(/\+?\d[\d\s\-]{8,}/g, "");
+    line = line.replace(/\b(email|mail|contact|phone|mobile)\b[:\-]*/gi, "");
+    line = line.replace(/([a-z])([A-Z])/g, "$1 $2");
+    line = line.replace(/[^\w\s]/g, " ");
+    return line.replace(/\s+/g, " ").trim();
+  }
 
-    // ── Images (JPG / PNG / WEBP) → vision ───────────────────────────
-    else if (["jpg","jpeg","png","webp"].includes(ext)) {
-      const buf      = await file.arrayBuffer();
-      const b64      = arrayBufferToBase64(buf);
-      const mimeType = (ext === "jpg" || ext === "jpeg") ? "image/jpeg"
-                     : ext === "png" ? "image/png" : "image/webp";
-      parts = [
-        { inline_data: { mime_type: mimeType, data: b64 } },
-        { text: prompt }
-      ];
-    }
+  function _isValidNameWords(words) {
+    if (words.length < 2 || words.length > 4) return false;
+    return words.every(w => !/\d/.test(w) && !INVALID_WORDS.has(w.toLowerCase()));
+  }
 
-    else {
-      throw new Error(`Unsupported file type: .${ext}`);
-    }
+  function _splitName(words) {
+    const caps = words.map(w => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase());
+    if (caps[0].length === 1) return [caps.slice(1).join(" "), caps[0]];
+    if (caps.length === 2)    return [caps[0], caps[1]];
+    return [caps.slice(0, -1).join(" "), caps[caps.length - 1]];
+  }
 
-    // ── Call Gemini API ───────────────────────────────────────────────
-    const resp = await fetch(GEMINI_URL, {
-      method:  "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        contents: [{ parts }],
-        generationConfig: { temperature: 0, maxOutputTokens: 256 }
-      })
+  function extractName(text, email) {
+    const lines = text.split("\n").map(l => l.trim()).filter(l => l);
+    const emailUser = email ? email.split("@")[0].toLowerCase().replace(/[^a-z]/g, "") : "";
+    const candidates = [];
+
+    lines.slice(0, 20).forEach((line, idx) => {
+      const words = _cleanLine(line).split(/\s+/).filter(w => w);
+      if (_isValidNameWords(words)) candidates.push({ words, position: idx });
     });
 
-    const data = await resp.json();
-    if (data.error) throw new Error(data.error.message || "Gemini API error");
+    lines.forEach((line, i) => {
+      if (line.includes("@")) {
+        (i > 0 ? [lines[i - 1], line] : [line]).forEach(target => {
+          const words = _cleanLine(target).split(/\s+/).filter(w => w);
+          if (_isValidNameWords(words)) candidates.push({ words, position: i });
+        });
+      }
+    });
 
-    const raw   = data.candidates?.[0]?.content?.parts?.[0]?.text || "";
-    const clean = raw.replace(/```json|```/g, "").trim();
-    if (!clean) throw new Error("Empty response from Gemini");
-    return JSON.parse(clean);
+    if (!candidates.length) return { first: "", last: "" };
+
+    let best = null, bestScore = -1;
+    for (const { words, position } of candidates) {
+      let score = 2;
+      if (position < 5) score += 2; else if (position < 10) score += 1;
+      if (words.length >= 2 && words.length <= 3) score += 2;
+      if (emailUser && words.some(w => emailUser.includes(w.toLowerCase()))) score += 3;
+      if (score > bestScore) { bestScore = score; best = words; }
+    }
+
+    const [first, last] = _splitName(best);
+    return { first, last };
+  }
+
+  function nameFromFilename(fileName) {
+    const base  = fileName.replace(/\.[^.]+$/, "").replace(/[_\-]+/g, " ").trim();
+    const words = base.split(/\s+/).filter(w => /^[a-zA-Z]+$/.test(w) && !INVALID_WORDS.has(w.toLowerCase()));
+    if (!words.length) return { first: "", last: "" };
+    const caps = words.slice(0, 4).map(w => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase());
+    if (caps.length === 1) return { first: caps[0], last: "" };
+    return { first: caps.slice(0, -1).join(" "), last: caps[caps.length - 1] };
+  }
+
+  async function parseResume(file) {
+    const text  = await extractTextFromFile(file);
+    const email = extractEmail(text);
+    const phone = extractPhone(text);
+    let { first, last } = text.trim() ? extractName(text, email) : { first: "", last: "" };
+    if (!first && !last) {
+      const fb = nameFromFilename(file.name);
+      first = fb.first; last = fb.last;
+    }
+    return { first_name: first, last_name: last, email, phone };
   }
 
 
@@ -536,14 +644,16 @@
   }
 
   async function loadJRs() {
+    // Fetch all JRs then filter client-side (case-insensitive) — DB stores "Active" not "active"
     const res = await fetch(
       `${SUPABASE_URL}/rest/v1/jr_master`
-      + `?select=jr_no,skill_name,job_details,client_recruiter,client_recruiter_email`
-      + `&jr_status=eq.active&order=jr_no.asc`,
+      + `?select=jr_no,skill_name,job_details,client_recruiter,client_recruiter_email,recruiter_email,jr_status`
+      + `&order=jr_no.asc`,
       { headers: sbHeaders() }
     );
     if (!res.ok) throw new Error(`Supabase ${res.status}`);
-    return res.json();
+    const all = await res.json();
+    return all.filter(jr => (jr.jr_status || "").trim().toLowerCase() === "active");
   }
 
   async function uploadResume(file, jrNo) {
@@ -571,16 +681,18 @@
   }
 
   async function insertCandidate(payload) {
-    const res = await fetch(
+    const res  = await fetch(
       `${SUPABASE_URL}/rest/v1/candidates_submitted`,
       { method: "POST", headers: sbHeaders(), body: JSON.stringify(payload) }
     );
-    if (res.status === 409 || (await res.text()).includes("23505")) {
-      return { duplicate: true };
-    }
-    if (!res.ok) throw new Error(`DB insert ${res.status}`);
-    const data = await res.clone().json().catch(() => [{}]);
-    return Array.isArray(data) ? data[0] : data;
+    if (res.status === 409) return { duplicate: true };
+    const text = await res.text();
+    if (text.includes("23505")) return { duplicate: true };
+    if (!res.ok) throw new Error(`DB insert ${res.status}: ${text.substring(0, 200)}`);
+    try {
+      const data = JSON.parse(text);
+      return Array.isArray(data) ? data[0] : data;
+    } catch { return {}; }
   }
 
   async function triggerGitHub(recordIds, recruiterEmail) {
@@ -633,7 +745,7 @@
         added++;
       });
     if (added) { renderTable(); updateButtons(); }
-    else if (files.length) toast("No supported files found. Accepted: PDF, DOCX, DOC, JPG, PNG, WEBP, TXT", "err", 5000);
+    else if (files.length) toast("No supported files found. Accepted: PDF, DOCX, DOC, TXT", "err", 5000);
   }
 
   // ── Table ─────────────────────────────────────────────────────────────
@@ -716,6 +828,10 @@
       const details = esc((jr.job_details || "No details").substring(0, 140));
       info.innerHTML = `<strong>Skill:</strong> ${skill} &nbsp;·&nbsp; <strong>Details:</strong> ${details}…`;
       info.style.display = "block";
+      // Auto-fill recruiter email from JR master if field is empty
+      if (!recruiterEl.value && (jr.recruiter_email || jr.client_recruiter_email)) {
+        recruiterEl.value = jr.recruiter_email || jr.client_recruiter_email || "";
+      }
     } else {
       info.style.display = "none";
     }
@@ -734,7 +850,7 @@
     for (const row of unparsed) {
       row.status = "parsing"; refreshRowStatus(row);
       try {
-        const data = await parseWithClaude(row.file);
+        const data = await parseResume(row.file);
 
         // Merge — only fill empty fields, never overwrite user edits
         if (!row.name && (data.first_name || data.last_name)) {
@@ -824,8 +940,8 @@
         upload_to_sap:           "Pending",
         recruiter:               recruiterName,
         recruiter_email:         recruiterEmail,
-        client_recruiter:        jr.client_recruiter        || "",
-        client_recruiter_email:  jr.client_recruiter_email  || "",
+        client_recruiter:        jr.client_recruiter        || jr.recruiter        || "",
+        client_recruiter_email:  jr.client_recruiter_email  || jr.recruiter_email || "",
         actual_status:           "Not Called",
         call_iteration:          "First Call",
         created_by:              recruiterEmail,
