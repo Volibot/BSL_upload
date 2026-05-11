@@ -730,6 +730,7 @@
       {
         method:  "POST",
         headers: {
+          "apikey":        SUPABASE_KEY,
           "Authorization": `Bearer ${SUPABASE_KEY}`,
           "Content-Type":  file.type || "application/octet-stream",
         },
@@ -989,7 +990,7 @@
         row.status = "done"; refreshRowStatus(row);
       } catch (e) {
         row.status = "error"; refreshRowStatus(row);
-        summary.push({ candidate: row.file.name, status: "Upload failed" });
+        summary.push({ candidate: row.file.name, status: `Upload failed: ${e.message}` });
         console.warn("Upload error:", row.file.name, e.message);
       }
     }
