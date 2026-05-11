@@ -365,8 +365,8 @@
   // ╚══════════════════════════════════════════════════════════════════════╝
   const SUPABASE_URL = "https://uwwzgoqxtzvbcxcxmcvn.supabase.co";
   const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InV3d3pnb3F4dHp2YmN4Y3htY3ZuIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc1NDk5ODc3NCwiZXhwIjoyMDcwNTc0Nzc0fQ.I4Ob5tRzIriubOjSAXnOwcnf-2R2oUhGFYCe0vYfynU";
-  const GH_REPO      = "vamshipriya14/sap-candidate-uploader";
-  const GH_TOKEN     = "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";
+  const GH_REPO      = "Volibot/BSL_upload";
+  const GH_TOKEN     = "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";
   const GH_EVENT     = "resume-form-submitted";
   // ══════════════════════════════════════════════════════════════════════
 
@@ -647,7 +647,7 @@
     // Fetch all JRs then filter client-side (case-insensitive) — DB stores "Active" not "active"
     const res = await fetch(
       `${SUPABASE_URL}/rest/v1/jr_master`
-      + `?select=jr_no,skill_name,job_details,client_recruiter,client_recruiter_email,recruiter_email,jr_status`
+      + `?select=jr_no,skill_name,job_details,client_recruiter,recruiter_email,jr_status`
       + `&order=jr_no.asc`,
       { headers: sbHeaders() }
     );
