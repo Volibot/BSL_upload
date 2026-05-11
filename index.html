@@ -718,6 +718,12 @@
     return all.filter(jr => (jr.jr_status || "").trim().toLowerCase() === "active");
   }
 
+  async function fileHash(file) {
+    const buf    = await file.arrayBuffer();
+    const digest = await crypto.subtle.digest("SHA-256", buf);
+    return Array.from(new Uint8Array(digest)).map(b => b.toString(16).padStart(2, "0")).join("").slice(0, 16);
+  }
+
   async function uploadResume(file, jrNo) {
     const hash     = await fileHash(file);
     const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, "_");
