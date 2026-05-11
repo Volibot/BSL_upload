@@ -1065,9 +1065,11 @@
     document.getElementById("summaryTitle").textContent = count > 0
       ? `${count} Candidate(s) Queued for SAP Upload`
       : "No new records saved";
-    document.getElementById("summarySubtitle").textContent = github_fired
-      ? "GitHub workflow triggered — you will receive an email when SAP upload completes."
-      : "Records saved. The next scheduled workflow will process them.";
+    document.getElementById("summarySubtitle").textContent = count > 0
+      ? (github_fired
+          ? "GitHub workflow triggered — you will receive an email when SAP upload completes."
+          : "Records saved. The next scheduled workflow will process them.")
+      : "Submission failed. Check the errors in the table above and try again.";
 
     document.getElementById("summaryTbody").innerHTML = (summary || []).map(r => {
       const ok  = r.status.includes("✓") || r.status === "Duplicate";
