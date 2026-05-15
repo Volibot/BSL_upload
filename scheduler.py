@@ -719,7 +719,7 @@ def run_pipeline() -> dict:
                         "resume_file": file_obj,
                         "submit":      SUBMIT_TO_SAP,
                     })
-                    sap_status = "Done"
+                    sap_status = "Succeeded"
                     log.info(f"SAP upload success: {cand_label}")
                     break
                 except Exception as e:
@@ -775,7 +775,7 @@ def run_pipeline() -> dict:
                 log.info(f"Reclassified as 'Already in SAP' based on: {sap_screen_error or sap_error}")
 
             # Capture screenshot for every non-success outcome (if not already captured)
-            if sap_status != "Done" and not screenshot_captured and bot:
+            if sap_status != "Succeeded" and not screenshot_captured and bot:
                 try:
                     snap_name = f"{jr_no}_{cand_label}_{sap_status.replace(' ', '_')}"
                     snap_path = bot._screenshot(snap_name)
@@ -834,7 +834,7 @@ def run_pipeline() -> dict:
             else:
                 log.warning(f"Cannot update DB — no record ID for {cand_label}")
 
-            if sap_status == "Done":
+            if sap_status == "Succeeded":
                 summary["done"] += 1
             elif sap_status == "Skipped":
                 summary["skipped"] += 1
@@ -844,7 +844,7 @@ def run_pipeline() -> dict:
             results_log.append({
                 "File":   file_name,
                 "Status": _upload_report_status(
-                    "Success" if sap_status == "Done"
+                    "Success" if sap_status == "Succeeded"
                     else ("Already in SAP" if sap_status == "Already in SAP" else sap_error)
                 ),
                 "Error":  sap_screen_error,

@@ -137,7 +137,7 @@ def _add_result(by_recruiter, recruiter_email, file_name, status, error_msg="", 
 
 
 def _report_status(sap_status: str, sap_error: str = "") -> str:
-    if sap_status == "Done":
+    if sap_status == "Succeeded":
         return "Success"
     if sap_status == "Already in SAP":
         return "Already in SAP"
@@ -301,7 +301,7 @@ def run_pipeline() -> dict:
                     "resume_file": file_obj,
                     "submit":      SUBMIT_TO_SAP,
                 })
-                sap_status = "Done"
+                sap_status = "Succeeded"
                 log.info(f"     ✅ SAP upload success: {cand_label}")
                 break
 
@@ -361,7 +361,7 @@ def run_pipeline() -> dict:
             log.info(f"     Reclassified as 'Already in SAP' based on: {sap_screen_error or sap_error}")
 
         # Capture screenshot for every non-success outcome (if not already captured)
-        if sap_status != "Done" and not screenshot_captured and bot:
+        if sap_status != "Succeeded" and not screenshot_captured and bot:
             try:
                 snap_name = f"{jr_no}_{cand_label}_{sap_status.replace(' ', '_')}"
                 snap_path = bot._screenshot(snap_name)
@@ -383,8 +383,8 @@ def run_pipeline() -> dict:
         }
 
         # Handle status update and error messages
-        if sap_status == "Done":
-            patch["upload_to_sap"] = "Done"
+        if sap_status == "Succeeded":
+            patch["upload_to_sap"] = "Succeeded"
             # Append success to existing error message if any
             try:
                 existing = requests.get(
@@ -421,7 +421,7 @@ def run_pipeline() -> dict:
             screenshots=failed_screenshots,
         )
 
-        if   sap_status == "Done":    summary["done"]    += 1
+        if   sap_status == "Succeeded":    summary["done"]    += 1
         elif sap_status == "Skipped": summary["skipped"] += 1
         elif sap_status == "Pending": summary["skipped"] += 1  # Count as skipped (will retry next run)
         else:                         summary["failed"]  += 1
