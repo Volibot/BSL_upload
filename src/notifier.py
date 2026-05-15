@@ -308,9 +308,7 @@ def _build_body_with_table(body_text: str, table_html: str) -> str:
 
 
 def send_client_email(user: dict, draft: dict, candidate_rows: list, attachments: list | None = None):
-    sender_email = str(user.get("email", "")).strip()
-    if not sender_email:
-        return False, "Logged-in user email is missing."
+    recruiter_email = str(user.get("email", "")).strip()
 
     to_list = _parse_recipients(draft.get("Email To", ""))
     if not to_list:
@@ -417,8 +415,12 @@ def send_client_email(user: dict, draft: dict, candidate_rows: list, attachments
             },
             "saveToSentItems": True,
         }
+        if recruiter_email:
+            payload["message"]["replyTo"] = [
+                {"emailAddress": {"address": recruiter_email}}
+            ]
         resp = requests.post(
-            f"https://graph.microsoft.com/v1.0/users/{sender_email}/sendMail",
+            f"https://graph.microsoft.com/v1.0/users/{REPORT_SENDER_EMAIL}/sendMail",
             headers={
                 "Authorization": f"Bearer {token}",
                 "Content-Type": "application/json",
