@@ -375,7 +375,7 @@ def fetch_record_by_candidate_name(jr: str, candidate_name: str) -> dict:
 def fetch_retry_sap_records(limit=20):
     url = (
         f"{SUPABASE_URL}/rest/v1/{SUPABASE_TABLE}"
-        f"?upload_to_sap=neq.Done"
+        f"?upload_to_sap=neq.Succeeded"
         f"&select=*"
         f"&limit={limit}"
     )
@@ -550,10 +550,10 @@ def fetch_active_jr_master() -> list[dict]:
 # 📧 EMAIL HELPERS
 # ─────────────────────────────────────────────
 def fetch_unsent_email_records() -> list[dict]:
-    """Fetch records where SAP upload is Done and client email has not been sent."""
+    """Fetch records where SAP upload is Succeeded and client email has not been sent."""
     response = requests.get(
         f"{SUPABASE_URL}/rest/v1/{SUPABASE_TABLE}"
-        "?upload_to_sap=eq.Done&client_email_sent=eq.Pending&select=*",
+        "?upload_to_sap=eq.Succeeded&client_email_sent=eq.Pending&select=*",
         headers=_headers(),
         timeout=30,
     )
