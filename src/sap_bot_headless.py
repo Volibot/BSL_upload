@@ -146,6 +146,118 @@ class SAPBot:
             self.driver.quit()
             self.driver = None
 
+    def quit(self):
+        self.close()
+
+    def _is_existing_candidate_dialog(self) -> bool:
+        """Return True if the 'Submit Existing Candidate' dialog is currently visible."""
+        try:
+            return bool(self.driver.execute_script(
+                """
+                function visible(el) {
+                    if (!el) return false;
+                    var s = window.getComputedStyle(el);
+                    if (s.display === 'none' || s.visibility === 'hidden') return false;
+                    var r = el.getBoundingClientRect();
+                    return r.width > 0 && r.height > 0;
+                }
+                var dialogs = Array.from(document.querySelectorAll(
+                    '.sapMDialog, [role="dialog"]'
+                )).filter(visible);
+                for (var d of dialogs) {
+                    var t = (d.innerText || '').toLowerCase();
+                    if (t.indexOf('submit existing candidate') >= 0 ||
+                        t.indexOf('candidate already exists') >= 0) {
+                        return true;
+                    }
+                }
+                return false;
+                """
+            ))
+        except Exception:
+            return False
+
+    def _extract_screen_error(self) -> str:
+        """Return the most relevant visible error/warning text shown on the SAP page."""
+        try:
+            text = self.driver.execute_script(
+                """
+                function visible(el) {
+                    if (!el) return false;
+                    var s = window.getComputedStyle(el);
+                    if (s.display === 'none' || s.visibility === 'hidden') return false;
+                    var r = el.getBoundingClientRect();
+                    return r.width > 0 && r.height > 0;
+                }
+                function clean(t) { return (t || '').replace(/\\s+/g, ' ').trim(); }
+
+                // 1. Toast notifications
+                var toasts = Array.from(document.querySelectorAll('.sapMMessageToast')).filter(visible);
+                if (toasts.length) return clean(toasts[0].innerText).slice(0, 400);
+
+                // 2. Message strip INSIDE an active dialog — target the text span directly
+                //    to avoid picking up icon labels, close buttons, or sibling form content.
+                var msgTextSelectors = [
+                    '.sapMDialog .sapMMessageStripMessage',
+                    '[role="dialog"] .sapMMessageStripMessage',
+                    '.sapMDialog [class*="MsgStripMessage"]',
+                    '[role="dialog"] [class*="MsgStripMessage"]',
+                ];
+                for (var msi = 0; msi < msgTextSelectors.length; msi++) {
+                    var msgEls = Array.from(document.querySelectorAll(msgTextSelectors[msi])).filter(visible);
+                    if (msgEls.length) {
+                        var t = clean(msgEls[0].innerText);
+                        if (t) return t.slice(0, 400);
+                    }
+                }
+                // Fallback: whole strip element (capped short to avoid form noise)
+                var dialogStrips = Array.from(document.querySelectorAll(
+                    '.sapMDialog .sapMMessageStrip, [role="dialog"] .sapMMessageStrip'
+                )).filter(visible);
+                for (var ds of dialogStrips) {
+                    var t = clean(ds.innerText);
+                    if (t) return t.slice(0, 200);
+                }
+
+                // 3. Dialog title only (not full body — avoids form field noise)
+                var dialogs = Array.from(document.querySelectorAll('.sapMDialog, [role="alertdialog"]')).filter(visible);
+                for (var d of dialogs) {
+                    var titleEl = d.querySelector('.sapMDialogTitle, .sapMTitle, [class*="sapMDialogTitle"]');
+                    var title = titleEl ? clean(titleEl.innerText) : '';
+                    // Only return dialog title for error/warning dialogs, not data-entry dialogs
+                    var cls = d.className || '';
+                    if (title && (cls.indexOf('Error') >= 0 || cls.indexOf('Warning') >= 0 ||
+                                  cls.indexOf('error') >= 0 || cls.indexOf('warning') >= 0)) {
+                        return title.slice(0, 400);
+                    }
+                    // Fallback: return first non-empty dialog innerText
+                    var t = clean(d.innerText);
+                    if (t) return t.slice(0, 400);
+                }
+
+                // 4. Standalone message strips (outside dialogs)
+                var strips = Array.from(document.querySelectorAll(
+                    '.sapMMessageStrip, [class*="sapMMessageStrip"]'
+                )).filter(visible);
+                for (var s of strips) {
+                    var t = clean(s.innerText);
+                    if (t) return t.slice(0, 400);
+                }
+
+                // 5. Generic ARIA alert regions
+                var alerts = Array.from(document.querySelectorAll('[role="alert"]')).filter(visible);
+                for (var a of alerts) {
+                    var t = clean(a.innerText);
+                    if (t) return t.slice(0, 400);
+                }
+
+                return '';
+                """
+            )
+            return str(text or "").strip()
+        except Exception:
+            return ""
+
     # =========================
     # INTERNAL HELPERS
     # =========================
@@ -1655,13 +1767,33 @@ class SAPBot:
         if data.get("submit", True):
             self._screenshot("07_before_add_candidate")
             self._press_dialog_button("Add Candidate")
-            try:
-                WebDriverWait(self.driver, 15).until(
-                    EC.invisibility_of_element_located((By.XPATH, "//div[contains(@class,'sapMDialog')]"))
-                )
+
+            # Poll for up to 15 s: either the dialog closes (success) or the
+            # "Submit Existing Candidate" dialog appears (candidate already in SAP).
+            deadline = time.time() + 15
+            submitted = False
+            while time.time() < deadline:
+                dialogs = self.driver.find_elements(By.XPATH, "//div[contains(@class,'sapMDialog')]")
+                if not any(d.is_displayed() for d in dialogs):
+                    submitted = True
+                    break
+                if self._is_existing_candidate_dialog():
+                    self._screenshot("08_existing_candidate_dialog")
+                    sap_msg = self._extract_screen_error() or ""
+                    try:
+                        self._press_dialog_button("Cancel")
+                        time.sleep(1)
+                    except Exception:
+                        pass
+                    # Embed SAP screen message after "|" so schedulers can parse it
+                    raise Exception(f"Candidate already exists in SAP|{sap_msg}")
+                time.sleep(0.5)
+
+            if submitted:
                 print(f"Candidate submitted for JR {jr}")
                 self._screenshot("08_after_add_candidate")
-            except Exception:
+            else:
+                self._screenshot("08_dialog_not_closed")
                 raise Exception("Dialog did not close after submission - verify manually")
         else:
             self._screenshot("07_before_cancel")

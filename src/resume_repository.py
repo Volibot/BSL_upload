@@ -55,6 +55,21 @@ def _now_iso():
     return datetime.now(timezone.utc).isoformat()
 
 
+def _to_iso_date(date_str: str) -> str | None:
+    """Convert DD-Mon-YYYY or YYYY-MM-DD → YYYY-MM-DD for the DATE column."""
+    if not date_str:
+        return None
+    try:
+        return datetime.strptime(date_str, "%d-%b-%Y").strftime("%Y-%m-%d")
+    except ValueError:
+        pass
+    try:
+        datetime.strptime(date_str, "%Y-%m-%d")
+        return date_str  # already ISO
+    except ValueError:
+        return None
+
+
 def _headers(json: bool = True) -> dict:
     if not SUPABASE_URL or not SUPABASE_KEY:
         raise Exception("Missing SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY")
@@ -121,7 +136,7 @@ def _resume_db_payload(row: dict, user: dict, resume_path: str | None = None) ->
 
     payload = {
         "jr_number":      str(row.get("JR Number", "")).strip(),
-        "date_text":      str(row.get("Date", "")).strip(),
+        "date":           _to_iso_date(str(row.get("Date", "")).strip()),
         "skill":          str(row.get("Skill", "")).strip(),
         "file_name":      str(row.get("File Name", "")).strip(),
         "resume_path":    resume_path,

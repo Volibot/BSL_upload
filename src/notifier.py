@@ -102,6 +102,8 @@ def _upload_report_status(status: str) -> str:
 
     if status_text == "Success":
         return "Success"
+    if "already in sap" in status_lower:
+        return "Already in SAP"
     if "job id not found" in status_lower:
         return "Job id not found"
     if "job not found" in status_lower:
@@ -128,32 +130,51 @@ def send_upload_notification(access_token, user, results, submit_mode, attachmen
         for r in results
     ]
     success    = [r for r in display_results if r["Status"] == "Success"]
-    failed     = [r for r in display_results if r["Status"] != "Success"]
+    existing   = [r for r in display_results if r["Status"] == "Already in SAP"]
+    failed     = [r for r in display_results if r["Status"] not in ("Success", "Already in SAP")]
     mode_label = "Live Submit" if submit_mode else "Dry Run"
     timestamp  = datetime.now().strftime("%d %b %Y, %I:%M %p")
 
     # Build results table rows
+    has_errors = any(r.get("Error", "").strip() for r in display_results if r["Status"] != "Success")
     rows_html = ""
     for r in display_results:
-        is_ok = r["Status"] == "Success"
-        bg    = "#d4edda" if is_ok else "#f8d7da"
-        icon  = "✅" if is_ok else "❌"
+        status = r["Status"]
+        if status == "Success":
+            bg, icon = "#d4edda", "✅"
+        elif status == "Already in SAP":
+            bg, icon = "#fff3cd", "⚠️"
+        else:
+            bg, icon = "#f8d7da", "❌"
+        error_td = ""
+        if has_errors:
+            err_text = r.get("Error", "") or ""
+            error_td = (
+                f"<td style='padding:8px 12px; border:1px solid #dee2e6; "
+                f"color:#721c24; font-size:12px'>{err_text or '—'}</td>"
+            )
         rows_html += f"""
         <tr style='background:{bg}'>
             <td style='padding:8px 12px; border:1px solid #dee2e6'>{r['File']}</td>
-            <td style='padding:8px 12px; border:1px solid #dee2e6'>{icon} {r['Status']}</td>
+            <td style='padding:8px 12px; border:1px solid #dee2e6'>{icon} {status}</td>
+            {error_td}
         </tr>"""
 
-    summary_bg   = "#d4edda" if not failed else "#fff3cd"
-    summary_text = (
-        f"All {len(success)} candidates uploaded successfully! 🎉"
-        if not failed
-        else f"{len(success)} succeeded, {len(failed)} failed."
-    )
+    summary_bg   = "#d4edda" if not failed and not existing else "#fff3cd"
+    if not failed and not existing:
+        summary_text = f"All {len(success)} candidates uploaded successfully! 🎉"
+    else:
+        parts = []
+        if success:  parts.append(f"{len(success)} uploaded")
+        if existing: parts.append(f"{len(existing)} already in SAP")
+        if failed:   parts.append(f"{len(failed)} failed")
+        summary_text = ", ".join(parts) + "."
 
     failed_note = ""
     if failed:
         failed_note = "<p style='margin-top:12px; color:#856404;'>Please refer to attached screenshots for more details.</p>"
+    if existing:
+        failed_note += "<p style='margin-top:8px; color:#856404;'>⚠️ Candidates marked <strong>Already in SAP</strong> were found in the system — no action needed.</p>"
 
     html_body = f"""
     <html><body style='font-family: Segoe UI, Arial, sans-serif; color: #333; max-width: 600px; margin: auto'>
@@ -173,6 +194,7 @@ def send_upload_notification(access_token, user, results, submit_mode, attachmen
                     <tr style='background:#f8f9fa'>
                         <th style='padding:8px 12px; border:1px solid #dee2e6; text-align:left'>File</th>
                         <th style='padding:8px 12px; border:1px solid #dee2e6; text-align:left'>Status</th>
+                        {"<th style='padding:8px 12px; border:1px solid #dee2e6; text-align:left'>Error Details</th>" if has_errors else ""}
                     </tr>
                 </thead>
                 <tbody>{rows_html}</tbody>

@@ -51,6 +51,7 @@ log = logging.getLogger("scheduler")
 INBOX_EMAIL = os.environ.get("INBOX_EMAIL", "hrvolibot@volibits.com")
 SUBJECT_PREFIX   = "Profiles - BS:"
 SUBMIT_TO_SAP    = os.environ.get("SCHEDULER_SUBMIT_TO_SAP", "true").lower() == "true"
+SEND_EMAIL       = os.environ.get("SCHEDULER_SEND_EMAIL",    "true").lower() == "true"
 MAX_MESSAGES     = int(os.environ.get("SCHEDULER_MAX_MESSAGES", "50"))
 SCHEDULER_USER   = {
     "email": os.environ.get("SCHEDULER_USER_EMAIL", "scheduler@volibits.com"),
@@ -432,6 +433,8 @@ def run_pipeline() -> dict:
     bot = None
     NON_CRITICAL_SAP_ERRORS = ["requisition id", "not found in job list"]
     DEAD_SESSION_ERRORS     = ["invalid session id", "no such session", "disconnected"]
+    CANDIDATE_EXISTS_ERRORS = ["candidate already exists in sap"]
+    ALREADY_IN_SAP_PHRASES  = ["already exists", "ownership period"]
 
     def _start_bot():
         b = SAPBot()
@@ -698,8 +701,9 @@ def run_pipeline() -> dict:
                 continue
 
             # 5h. SAP upload with retry
-            sap_status = "Failed"
-            sap_error  = ""
+            sap_status       = "Failed"
+            sap_error        = ""
+            sap_screen_error = ""
             screenshot_captured = False
 
             for attempt in range(2):
@@ -721,6 +725,11 @@ def run_pipeline() -> dict:
                 except Exception as e:
                     sap_error = str(e)
                     sap_status = "Failed"
+                    if any(err in sap_error.lower() for err in CANDIDATE_EXISTS_ERRORS):
+                        sap_status = "Already in SAP"
+                        sap_screen_error = sap_error.split("|", 1)[1] if "|" in sap_error else ""
+                        log.warning(f"Candidate already exists in SAP: {cand_label}")
+                        break
                     if any(err in sap_error.lower() for err in NON_CRITICAL_SAP_ERRORS):
                         sap_status = "Skipped"
                         log.warning(f"SAP skipped (non-critical): {sap_error}")
@@ -751,9 +760,36 @@ def run_pipeline() -> dict:
                             "content": screenshot_path.read_bytes(),
                         })
                         screenshot_captured = True
+                        extracted = bot._extract_screen_error()
+                        if extracted:
+                            sap_screen_error = extracted
+                            log.info(f"SAP screen error: {sap_screen_error}")
                     except Exception:
                         pass
                     log.error(f"SAP upload failed (attempt {attempt + 1}): {sap_error}")
+
+            # Reclassify Failed → Already in SAP if the screen message says so
+            _err_text = (sap_screen_error or sap_error or "").lower()
+            if sap_status == "Failed" and any(p in _err_text for p in ALREADY_IN_SAP_PHRASES):
+                sap_status = "Already in SAP"
+                log.info(f"Reclassified as 'Already in SAP' based on: {sap_screen_error or sap_error}")
+
+            # Capture screenshot for every non-success outcome (if not already captured)
+            if sap_status != "Done" and not screenshot_captured and bot:
+                try:
+                    snap_name = f"{jr_no}_{cand_label}_{sap_status.replace(' ', '_')}"
+                    snap_path = bot._screenshot(snap_name)
+                    failed_upload_attachments.append({
+                        "name":    f"{snap_name}.png",
+                        "content": snap_path.read_bytes(),
+                    })
+                    if not sap_screen_error:
+                        extracted = bot._extract_screen_error()
+                        if extracted:
+                            sap_screen_error = extracted
+                            log.info(f"SAP screen error: {sap_screen_error}")
+                except Exception:
+                    pass
 
             # 5i. Update DB status
             if not db_record_id:
@@ -773,8 +809,10 @@ def run_pipeline() -> dict:
                     "modified_by":            from_email,
                     "modified_at":            _now_iso(),
                 }
-                if sap_error:
-                    patch_payload["error_message"] = sap_error[:500]
+                # Prefer the actual SAP screen message over the Python exception text
+                error_to_store = sap_screen_error or sap_error
+                if error_to_store:
+                    patch_payload["error_message"] = error_to_store[:500]
                 try:
                     resp = requests.patch(
                         f"{SUPABASE_URL}/rest/v1/{SUPABASE_TABLE}?id=eq.{db_record_id}",
@@ -805,7 +843,11 @@ def run_pipeline() -> dict:
 
             results_log.append({
                 "File":   file_name,
-                "Status": _upload_report_status("Success" if sap_status == "Done" else sap_error),
+                "Status": _upload_report_status(
+                    "Success" if sap_status == "Done"
+                    else ("Already in SAP" if sap_status == "Already in SAP" else sap_error)
+                ),
+                "Error":  sap_screen_error,
             })
 
             # Mark email as read + move after all candidates processed
@@ -822,19 +864,22 @@ def run_pipeline() -> dict:
 
             # ── Send report per email to the recruiter who sent it ──
             if results_log:
-                report_user = {"email": from_email, "name": from_email, "access_token": ""}
-                ok, msg_result = send_upload_notification(
-                    access_token="",
-                    user=report_user,
-                    results=results_log,
-                    submit_mode=SUBMIT_TO_SAP,
-                    attachments=failed_upload_attachments,
-                    cc=os.environ.get("EMAIL_CC", "").split(",") if os.environ.get("EMAIL_CC") else [],
-                )
-                if ok:
-                    log.info(f"📧 Report sent to {from_email}")
+                if SEND_EMAIL:
+                    report_user = {"email": from_email, "name": from_email, "access_token": ""}
+                    ok, msg_result = send_upload_notification(
+                        access_token="",
+                        user=report_user,
+                        results=results_log,
+                        submit_mode=SUBMIT_TO_SAP,
+                        attachments=failed_upload_attachments,
+                        cc=os.environ.get("EMAIL_CC", "").split(",") if os.environ.get("EMAIL_CC") else [],
+                    )
+                    if ok:
+                        log.info(f"📧 Report sent to {from_email}")
+                    else:
+                        log.warning(f"Report not sent: {msg_result}")
                 else:
-                    log.warning(f"Report not sent: {msg_result}")
+                    log.info(f"Email notifications disabled (SCHEDULER_SEND_EMAIL=false) — skipping report for {from_email}")
                 results_log = []  # reset for next email
                 failed_upload_attachments = []  # reset for next email
 
@@ -859,19 +904,22 @@ def run_pipeline() -> dict:
 
         # Send report per email, to the sender of that specific email
         if results_log:
-            report_user = {"email": from_email, "name": from_email, "access_token": ""}
-            ok, msg_result = send_upload_notification(
-                access_token="",
-                user=report_user,
-                results=results_log,
-                submit_mode=SUBMIT_TO_SAP,
-                attachments=failed_upload_attachments,
-                cc=os.environ.get("EMAIL_CC", "").split(",") if os.environ.get("EMAIL_CC") else [],
-            )
-            if ok:
-                log.info(f"📧 Report sent to {from_email}")
+            if SEND_EMAIL:
+                report_user = {"email": from_email, "name": from_email, "access_token": ""}
+                ok, msg_result = send_upload_notification(
+                    access_token="",
+                    user=report_user,
+                    results=results_log,
+                    submit_mode=SUBMIT_TO_SAP,
+                    attachments=failed_upload_attachments,
+                    cc=os.environ.get("EMAIL_CC", "").split(",") if os.environ.get("EMAIL_CC") else [],
+                )
+                if ok:
+                    log.info(f"📧 Report sent to {from_email}")
+                else:
+                    log.warning(f"Report not sent: {msg_result}")
             else:
-                log.warning(f"Report not sent: {msg_result}")
+                log.info(f"Email notifications disabled (SCHEDULER_SEND_EMAIL=false) — skipping report for {from_email}")
             results_log = []  # reset for next email
             failed_upload_attachments = []  # reset for next email
 
