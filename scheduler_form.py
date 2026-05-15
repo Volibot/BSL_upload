@@ -53,11 +53,14 @@ log = logging.getLogger("scheduler_form")
 # CONFIG
 # ─────────────────────────────────────────────────────────────
 SUBMIT_TO_SAP = os.environ.get("SCHEDULER_SUBMIT_TO_SAP", "true").lower() == "true"
+SEND_EMAIL    = os.environ.get("SCHEDULER_SEND_EMAIL",    "true").lower() == "true"
 MAX_RECORDS   = int(os.environ.get("SCHEDULER_MAX_RECORDS", "50"))
 EMAIL_CC      = [e for e in os.environ.get("SCHEDULER_EMAIL_CC", "").split(",") if e.strip()]
 
-NON_CRITICAL_SAP_ERRORS = ["requisition id", "not found in job list"]
-DEAD_SESSION_ERRORS     = ["invalid session id", "no such session", "disconnected"]
+NON_CRITICAL_SAP_ERRORS  = ["requisition id", "not found in job list"]
+DEAD_SESSION_ERRORS      = ["invalid session id", "no such session", "disconnected"]
+CANDIDATE_EXISTS_ERRORS  = ["candidate already exists in sap"]
+ALREADY_IN_SAP_PHRASES   = ["already exists", "ownership period"]
 
 BUCKET = "resumes"
 
@@ -123,10 +126,12 @@ def _resolve_recruiter_email(record: dict) -> str:
     return ""
 
 
-def _add_result(by_recruiter, recruiter_email, file_name, status, screenshots=None):
+def _add_result(by_recruiter, recruiter_email, file_name, status, error_msg="", screenshots=None):
     if recruiter_email not in by_recruiter:
         by_recruiter[recruiter_email] = {"results": [], "screenshots": []}
-    by_recruiter[recruiter_email]["results"].append({"File": file_name, "Status": status})
+    by_recruiter[recruiter_email]["results"].append(
+        {"File": file_name, "Status": status, "Error": error_msg or ""}
+    )
     if screenshots:
         by_recruiter[recruiter_email]["screenshots"].extend(screenshots)
 
@@ -134,6 +139,8 @@ def _add_result(by_recruiter, recruiter_email, file_name, status, screenshots=No
 def _report_status(sap_status: str, sap_error: str = "") -> str:
     if sap_status == "Done":
         return "Success"
+    if sap_status == "Already in SAP":
+        return "Already in SAP"
     if "requisition id" in str(sap_error or "").lower() and "not found" in str(sap_error or "").lower():
         return "Job id not found"
     return "Failed"
@@ -272,9 +279,10 @@ def run_pipeline() -> dict:
             _add_result(by_recruiter, recruiter_email, file_name, "Failed")
             continue
 
-        sap_status         = "Failed"
-        sap_error          = ""
-        failed_screenshots = []
+        sap_status          = "Failed"
+        sap_error           = ""
+        sap_screen_error    = ""
+        failed_screenshots  = []
         screenshot_captured = False
 
         for attempt in range(2):
@@ -300,6 +308,13 @@ def run_pipeline() -> dict:
             except Exception as e:
                 sap_error = str(e)
 
+                if any(err in sap_error.lower() for err in CANDIDATE_EXISTS_ERRORS):
+                    sap_status = "Already in SAP"
+                    # Exception format: "Candidate already exists in SAP|<SAP screen message>"
+                    sap_screen_error = sap_error.split("|", 1)[1] if "|" in sap_error else ""
+                    log.warning(f"     ⚠ Candidate already exists in SAP: {cand_label}")
+                    break
+
                 if any(err in sap_error.lower() for err in NON_CRITICAL_SAP_ERRORS):
                     sap_status = "Skipped"
                     log.warning(f"     ⚠ SAP skipped (non-critical): {sap_error}")
@@ -321,7 +336,7 @@ def run_pipeline() -> dict:
 
                 sap_status = "Failed"
 
-                # Capture screenshot on real failure
+                # Capture screenshot and visible error text on first real failure
                 if not screenshot_captured:
                     try:
                         snap_name = f"{jr_no}_{cand_label}"
@@ -331,9 +346,36 @@ def run_pipeline() -> dict:
                             "content": snap_path.read_bytes(),
                         })
                         screenshot_captured = True
+                        extracted = bot._extract_screen_error()
+                        if extracted:
+                            sap_screen_error = extracted
+                            log.info(f"     SAP screen error: {sap_screen_error}")
                     except Exception:
                         pass
                 log.error(f"     ❌ SAP upload failed (attempt {attempt + 1}): {sap_error}")
+
+        # Reclassify Failed → Already in SAP if the screen message says so
+        _err_text = (sap_screen_error or sap_error or "").lower()
+        if sap_status == "Failed" and any(p in _err_text for p in ALREADY_IN_SAP_PHRASES):
+            sap_status = "Already in SAP"
+            log.info(f"     Reclassified as 'Already in SAP' based on: {sap_screen_error or sap_error}")
+
+        # Capture screenshot for every non-success outcome (if not already captured)
+        if sap_status != "Done" and not screenshot_captured and bot:
+            try:
+                snap_name = f"{jr_no}_{cand_label}_{sap_status.replace(' ', '_')}"
+                snap_path = bot._screenshot(snap_name)
+                failed_screenshots.append({
+                    "name":    f"{snap_name}.png",
+                    "content": snap_path.read_bytes(),
+                })
+                if not sap_screen_error:
+                    extracted = bot._extract_screen_error()
+                    if extracted:
+                        sap_screen_error = extracted
+                        log.info(f"     SAP screen error: {sap_screen_error}")
+            except Exception:
+                pass
 
         # ── 3c. Update Supabase table ─────────────────────────
         patch = {
@@ -356,15 +398,15 @@ def run_pipeline() -> dict:
             except Exception:
                 pass
         elif sap_status in ("Pending",):
-            # Keep pending status on temporary errors, add error message
             patch["upload_to_sap"] = "Pending"
             if sap_error:
                 patch["error_message"] = sap_error[:500]
         else:
-            # Skipped or other statuses
             patch["upload_to_sap"] = sap_status
-            if sap_error:
-                patch["error_message"] = sap_error[:500]
+            # Prefer the actual SAP screen message over the Python exception text
+            error_to_store = sap_screen_error or sap_error
+            if error_to_store:
+                patch["error_message"] = error_to_store[:500]
 
         try:
             _patch_record(record_id, patch)
@@ -375,6 +417,7 @@ def run_pipeline() -> dict:
         _add_result(
             by_recruiter, recruiter_email, file_name,
             _report_status(sap_status, sap_error),
+            error_msg=sap_screen_error,
             screenshots=failed_screenshots,
         )
 
@@ -389,6 +432,10 @@ def run_pipeline() -> dict:
         except Exception: pass
 
     # ── 5. Send notification per recruiter ────────────────────
+    if not SEND_EMAIL:
+        log.info("Email notifications disabled (SCHEDULER_SEND_EMAIL=false) — skipping.")
+        return summary
+
     for recruiter_email, info in by_recruiter.items():
         recruiter_email = recruiter_email.strip() if recruiter_email else ""
 
