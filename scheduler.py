@@ -544,9 +544,44 @@ def run_pipeline() -> dict:
             # 5c. Build row_data
             jr_meta    = _get_jr_meta(jr_no)
             skill      = jr_meta.get("skill_name", "") or skill_from_subject
-            name_parts = candidate_name.split(" ", 1) if candidate_name else []
-            first_name = parsed.get("first_name") or (name_parts[0] if name_parts else "")
-            last_name  = parsed.get("last_name")  or (name_parts[1] if len(name_parts) > 1 else "")
+            _CITY_BLOCKLIST = {
+                "hyderabad", "bangalore", "bengaluru", "mumbai", "delhi", "chennai",
+                "kolkata", "pune", "ahmedabad", "jaipur", "lucknow", "kanpur",
+                "nagpur", "visakhapatnam", "vizag", "bhopal", "patna", "ludhiana",
+                "agra", "nashik", "vadodara", "surat", "rajkot", "meerut",
+                "coimbatore", "indore", "thane", "navi", "noida", "gurgaon",
+                "gurugram", "faridabad", "ghaziabad", "chandigarh", "kochi",
+                "thiruvananthapuram", "trivandrum", "madurai", "tiruchirappalli",
+                "trichy", "warangal", "vijayawada", "guntur", "nellore",
+                "hubli", "dharwad", "mysuru", "mysore", "mangaluru", "mangalore",
+                "bhubaneswar", "cuttack", "raipur", "ranchi", "dehradun",
+                "amritsar", "jalandhar", "jodhpur", "udaipur", "kota",
+                "guwahati", "imphal", "shillong", "aizawl", "agartala",
+                "shimla", "srinagar", "jammu", "leh", "panaji", "goa",
+                "aurangabad", "solapur", "kolhapur", "akola", "amravati",
+                "siliguri", "durgapur", "asansol", "navi mumbai", "greater noida",
+            }
+            def _split_name(name):
+                parts = name.split()
+                if not parts:
+                    return "", ""
+                # Strip trailing city names
+                while parts and parts[-1].lower() in _CITY_BLOCKLIST:
+                    parts.pop()
+                if not parts:
+                    return "", ""
+                # Leading word ≤2 chars is a surname prefix (e.g. "Ch", "K")
+                if len(parts) > 1 and len(parts[0]) <= 2:
+                    return " ".join(parts[1:]), parts[0]
+                last_parts = []
+                while len(parts) > 1 and len(parts[-1]) == 1:
+                    last_parts.insert(0, parts.pop())
+                if not last_parts:
+                    last_parts = [parts.pop()]
+                return " ".join(parts), " ".join(last_parts)
+            _fn, _ln = _split_name(candidate_name) if candidate_name else ("", "")
+            first_name = parsed.get("first_name") or _fn
+            last_name  = parsed.get("last_name")  or _ln
             client_recruiter       = jr_meta.get("client_recruiter") or jr_meta.get("recruiter") or ""
             client_recruiter_email = jr_meta.get("client_recruiter_email") or jr_meta.get("recruiter_email") or ""
 
