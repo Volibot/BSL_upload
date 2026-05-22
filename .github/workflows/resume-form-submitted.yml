@@ -59,6 +59,9 @@ jobs:
           SCHEDULER_SUBMIT_TO_SAP   : 'true'
           SCHEDULER_MAX_RECORDS     : '50'
           SCHEDULER_EMAIL_CC        : ${{ secrets.SCHEDULER_EMAIL_CC }}
+          # Pass record IDs from dispatch payload so the scheduler only processes
+          # profiles submitted in this session (null on schedule/manual runs → all pending)
+          SCHEDULER_RECORD_IDS      : ${{ toJson(github.event.client_payload.record_ids) }}
         run: python scheduler_form.py
 
       - name: Upload failure screenshots (if any)

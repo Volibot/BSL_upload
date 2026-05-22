@@ -15,6 +15,7 @@ Flow:
 """
 
 import io
+import json
 import logging
 import os
 import sys
@@ -57,10 +58,23 @@ SEND_EMAIL    = os.environ.get("SCHEDULER_SEND_EMAIL",    "true").lower() == "tr
 MAX_RECORDS   = int(os.environ.get("SCHEDULER_MAX_RECORDS", "50"))
 EMAIL_CC      = [e for e in os.environ.get("SCHEDULER_EMAIL_CC", "").split(",") if e.strip()]
 
+# When set (by repository_dispatch), only process these specific record IDs.
+# Falls back to all-pending query on safety-net / manual runs (where the value is null/"").
+_raw_record_ids = os.environ.get("SCHEDULER_RECORD_IDS", "")
+RECORD_IDS: list[str] = []
+if _raw_record_ids and _raw_record_ids.strip() not in ("", "null"):
+    try:
+        _parsed = json.loads(_raw_record_ids)
+        if isinstance(_parsed, list):
+            RECORD_IDS = [str(i).strip() for i in _parsed if i]
+    except Exception:
+        pass
+
 NON_CRITICAL_SAP_ERRORS  = ["requisition id", "not found in job list"]
 DEAD_SESSION_ERRORS      = ["invalid session id", "no such session", "disconnected"]
 CANDIDATE_EXISTS_ERRORS  = ["candidate already exists in sap"]
 ALREADY_IN_SAP_PHRASES   = ["already exists", "ownership period"]
+SAP_SUCCESS_MESSAGES     = ["candidate has been added"]
 
 BUCKET = "resumes"
 
@@ -107,6 +121,25 @@ def fetch_form_pending_records(limit: int = 50) -> list:
         f"&upload_to_sap=eq.Pending"
         f"&select=*"
         f"&limit={limit}"
+    )
+    resp = requests.get(url, headers=_headers(), timeout=30)
+    if resp.status_code != 200:
+        raise Exception(resp.text)
+    return resp.json()
+
+
+def fetch_records_by_ids(ids: list) -> list:
+    """
+    Fetch specific records by UUID, filtered to Pending status.
+    Used when triggered by a form-submission dispatch so only the profiles
+    submitted in that session are processed (not the whole queue).
+    """
+    id_list = ",".join(ids)
+    url = (
+        f"{SUPABASE_URL}/rest/v1/{SUPABASE_TABLE}"
+        f"?id=in.({id_list})"
+        f"&upload_to_sap=eq.Pending"
+        f"&select=*"
     )
     resp = requests.get(url, headers=_headers(), timeout=30)
     if resp.status_code != 200:
@@ -166,10 +199,17 @@ def run_pipeline() -> dict:
 
     log.info("=" * 60)
     log.info(f"Form scheduler run started — submit_to_sap={SUBMIT_TO_SAP}")
+    if RECORD_IDS:
+        log.info(f"Targeted run — processing {len(RECORD_IDS)} specific record(s): {RECORD_IDS}")
+    else:
+        log.info("Safety-net / manual run — processing all pending records")
 
     # ── 1. Fetch Pending form-submitted records ───────────────
     try:
-        pending = fetch_form_pending_records(limit=MAX_RECORDS)
+        if RECORD_IDS:
+            pending = fetch_records_by_ids(RECORD_IDS)
+        else:
+            pending = fetch_form_pending_records(limit=MAX_RECORDS)
     except Exception as e:
         log.error(f"Failed to fetch pending records: {e}")
         summary["errors"].append(f"Fetch records: {e}")
@@ -353,6 +393,14 @@ def run_pipeline() -> dict:
                     except Exception:
                         pass
                 log.error(f"     ❌ SAP upload failed (attempt {attempt + 1}): {sap_error}")
+
+                # SAP confirmed the candidate was added despite the exception — treat as success
+                if sap_screen_error and any(msg in sap_screen_error.lower() for msg in SAP_SUCCESS_MESSAGES):
+                    log.info(f"     Reclassified as 'Succeeded' — SAP confirmed: {sap_screen_error}")
+                    sap_status = "Succeeded"
+                    sap_screen_error = ""
+                    failed_screenshots = []
+                    break
 
         # Reclassify Failed → Already in SAP if the screen message says so
         _err_text = (sap_screen_error or sap_error or "").lower()

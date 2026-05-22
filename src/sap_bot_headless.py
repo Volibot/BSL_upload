@@ -9,6 +9,7 @@ from selenium.webdriver.common.by import By
 from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.support.ui import WebDriverWait
+from selenium.common.exceptions import StaleElementReferenceException
 
 def start(self):
     options = webdriver.ChromeOptions()
@@ -1773,8 +1774,21 @@ class SAPBot:
             deadline = time.time() + 15
             submitted = False
             while time.time() < deadline:
-                dialogs = self.driver.find_elements(By.XPATH, "//div[contains(@class,'sapMDialog')]")
-                if not any(d.is_displayed() for d in dialogs):
+                try:
+                    dialogs = self.driver.find_elements(By.XPATH, "//div[contains(@class,'sapMDialog')]")
+                    still_visible = False
+                    for d in dialogs:
+                        try:
+                            if d.is_displayed():
+                                still_visible = True
+                                break
+                        except StaleElementReferenceException:
+                            pass  # element removed from DOM — dialog closed
+                    if not still_visible:
+                        submitted = True
+                        break
+                except StaleElementReferenceException:
+                    # Page changed while reading dialog list — dialog is gone
                     submitted = True
                     break
                 if self._is_existing_candidate_dialog():
