@@ -19,6 +19,7 @@ import json
 import logging
 import os
 import sys
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -57,6 +58,7 @@ SUBMIT_TO_SAP = os.environ.get("SCHEDULER_SUBMIT_TO_SAP", "true").lower() == "tr
 SEND_EMAIL    = os.environ.get("SCHEDULER_SEND_EMAIL",    "true").lower() == "true"
 MAX_RECORDS   = int(os.environ.get("SCHEDULER_MAX_RECORDS", "50"))
 EMAIL_CC      = [e for e in os.environ.get("SCHEDULER_EMAIL_CC", "").split(",") if e.strip()]
+SAP_WORKERS   = max(1, int(os.environ.get("SCHEDULER_WORKERS", "1")))
 
 # When set (by repository_dispatch), only process these specific record IDs.
 # Falls back to all-pending query on safety-net / manual runs (where the value is null/"").
@@ -188,80 +190,44 @@ def _mark_skipped_silent(record_id: str) -> None:
 
 
 # ─────────────────────────────────────────────────────────────
-# MAIN PIPELINE
+# CHUNK PROCESSOR  (one per parallel worker)
 # ─────────────────────────────────────────────────────────────
-def run_pipeline() -> dict:
-    run_start = datetime.now(timezone.utc)
-    summary   = {
-        "started_at": run_start.isoformat(),
-        "total": 0, "done": 0, "skipped": 0, "failed": 0, "errors": [],
-    }
+def _process_chunk(records: list, submit_to_sap: bool) -> tuple[dict, dict]:
+    """Start a dedicated SAP bot and process the given slice of records."""
+    by_recruiter: dict[str, dict] = {}
+    counts = {"done": 0, "skipped": 0, "failed": 0, "errors": []}
 
-    log.info("=" * 60)
-    log.info(f"Form scheduler run started — submit_to_sap={SUBMIT_TO_SAP}")
-    if RECORD_IDS:
-        log.info(f"Targeted run — processing {len(RECORD_IDS)} specific record(s): {RECORD_IDS}")
-    else:
-        log.info("Safety-net / manual run — processing all pending records")
-
-    # ── 1. Fetch Pending form-submitted records ───────────────
-    try:
-        if RECORD_IDS:
-            pending = fetch_records_by_ids(RECORD_IDS)
-        else:
-            pending = fetch_form_pending_records(limit=MAX_RECORDS)
-    except Exception as e:
-        log.error(f"Failed to fetch pending records: {e}")
-        summary["errors"].append(f"Fetch records: {e}")
-        return summary
-
-    log.info(f"Found {len(pending)} pending form-submitted record(s)")
-    summary["total"] = len(pending)
-
-    if not pending:
-        log.info("Nothing to process.")
-        return summary
-
-    # ── 2. Start SAP bot (with retry) ─────────────────────
+    # Start bot
     bot = None
-    max_bot_retries = 2
-    for attempt in range(max_bot_retries):
+    for attempt in range(2):
         try:
             bot = _start_bot()
             log.info("SAP bot connected ✅")
             break
         except Exception as e:
-            if attempt < max_bot_retries - 1:
+            if attempt < 1:
                 log.warning(f"SAP bot failed (attempt {attempt + 1}), retrying…")
             else:
                 log.error(f"SAP bot failed to start: {e}")
-                summary["errors"].append(f"SAP start: {e}")
+                counts["errors"].append(f"SAP start: {e}")
 
-    # ── 3. Process each record ────────────────────────────────
-    # Group by recruiter email so one notification goes per recruiter
-    by_recruiter: dict[str, dict] = {}
-
-    for record in pending:
-        record_id        = _safe(record.get("id"))
-        jr_no            = _safe(record.get("jr_number"))
-        first_name       = _safe(record.get("first_name"))
-        last_name        = _safe(record.get("last_name"))
-        email            = _safe(record.get("email"))
-        phone            = _safe(record.get("phone"))
-        resume_path      = _safe(record.get("resume_path"))
-        file_name        = _safe(record.get("file_name"))
-        recruiter_email  = _resolve_recruiter_email(record)   # ← robust resolution
-        cand_label       = f"{first_name} {last_name}".strip() or file_name
+    for record in records:
+        record_id       = _safe(record.get("id"))
+        jr_no           = _safe(record.get("jr_number"))
+        first_name      = _safe(record.get("first_name"))
+        last_name       = _safe(record.get("last_name"))
+        email           = _safe(record.get("email"))
+        phone           = _safe(record.get("phone"))
+        resume_path     = _safe(record.get("resume_path"))
+        file_name       = _safe(record.get("file_name"))
+        recruiter_email = _resolve_recruiter_email(record)
+        cand_label      = f"{first_name} {last_name}".strip() or file_name
 
         log.info(f"  → {cand_label} | JR: {jr_no} | id: {record_id}")
 
         missing = missing_upload_fields({
-            "jr_number": jr_no,
-            "first_name": first_name,
-            "last_name": last_name,
-            "email": email,
-            "phone": phone,
-            "resume_file": resume_path,
+            "jr_number": jr_no, "first_name": first_name, "last_name": last_name,
+            "email": email, "phone": phone, "resume_file": resume_path,
         })
         if missing:
             log.info(f"     Skipping silently - missing required data: {', '.join(missing)}")
@@ -269,10 +235,9 @@ def run_pipeline() -> dict:
                 _mark_skipped_silent(record_id)
             except Exception as e:
                 log.warning(f"     Failed to mark incomplete record as Skipped: {e}")
-            summary["skipped"] += 1
+            counts["skipped"] += 1
             continue
 
-        # ── Check for duplicates (retry failed/skipped uploads) ───
         duplicate = fetch_existing_record(jr_no, email, phone)
         is_duplicate = False
         if duplicate:
@@ -284,18 +249,15 @@ def run_pipeline() -> dict:
                 is_duplicate = True
             elif dup_id != record_id:
                 log.info(f"     Duplicate found with status={dup_status} — skipping")
-                summary["skipped"] += 1
+                counts["skipped"] += 1
                 _add_result(by_recruiter, recruiter_email, file_name, "Failed")
                 continue
 
-        # ── 3a. Download resume from Supabase Storage ─────────
         file_bytes = None
         if resume_path:
-            # Strip any legacy "/object/sign/resumes/" prefix + query string
             clean_path = resume_path
             if clean_path.startswith("/object/sign/"):
                 clean_path = clean_path.replace("/object/sign/resumes/", "").split("?")[0]
-
             log.info(f"     Resume path: {clean_path}")
             try:
                 file_bytes = download_resume(clean_path)
@@ -303,19 +265,18 @@ def run_pipeline() -> dict:
             except Exception as e:
                 log.warning(f"     Resume download failed: {e}")
 
-        # ── 3b. SAP upload ────────────────────────────────────
         if not file_bytes:
             log.info("     Skipping silently - resume missing or could not be downloaded")
             try:
                 _mark_skipped_silent(record_id)
             except Exception as e:
                 log.warning(f"     Failed to mark missing-resume record as Skipped: {e}")
-            summary["skipped"] += 1
+            counts["skipped"] += 1
             continue
 
         if not bot:
             log.warning("     SAP bot unavailable - leaving record Pending")
-            summary["skipped"] += 1
+            counts["skipped"] += 1
             _add_result(by_recruiter, recruiter_email, file_name, "Failed")
             continue
 
@@ -327,30 +288,22 @@ def run_pipeline() -> dict:
 
         for attempt in range(2):
             try:
-                file_obj = None
-                if file_bytes:
-                    file_obj      = io.BytesIO(file_bytes)
-                    file_obj.name = file_name
-
+                file_obj      = io.BytesIO(file_bytes)
+                file_obj.name = file_name
                 upload_to_sap(bot, {
-                    "jr_number":   jr_no,
-                    "first_name":  first_name,
-                    "last_name":   last_name,
-                    "email":       email,
-                    "phone":       phone,
-                    "resume_file": file_obj,
-                    "submit":      SUBMIT_TO_SAP,
+                    "jr_number":   jr_no,   "first_name":  first_name,
+                    "last_name":   last_name, "email":     email,
+                    "phone":       phone,   "resume_file": file_obj,
+                    "submit":      submit_to_sap,
                 })
                 sap_status = "Succeeded"
                 log.info(f"     ✅ SAP upload success: {cand_label}")
                 break
-
             except Exception as e:
                 sap_error = str(e)
 
                 if any(err in sap_error.lower() for err in CANDIDATE_EXISTS_ERRORS):
                     sap_status = "Already in SAP"
-                    # Exception format: "Candidate already exists in SAP|<SAP screen message>"
                     sap_screen_error = sap_error.split("|", 1)[1] if "|" in sap_error else ""
                     log.warning(f"     ⚠ Candidate already exists in SAP: {cand_label}")
                     break
@@ -375,15 +328,12 @@ def run_pipeline() -> dict:
                     continue
 
                 sap_status = "Failed"
-
-                # Capture screenshot and visible error text on first real failure
                 if not screenshot_captured:
                     try:
                         snap_name = f"{jr_no}_{cand_label}"
                         snap_path = bot._screenshot(snap_name)
                         failed_screenshots.append({
-                            "name":    f"{snap_name}.png",
-                            "content": snap_path.read_bytes(),
+                            "name": f"{snap_name}.png", "content": snap_path.read_bytes(),
                         })
                         screenshot_captured = True
                         extracted = bot._extract_screen_error()
@@ -394,7 +344,6 @@ def run_pipeline() -> dict:
                         pass
                 log.error(f"     ❌ SAP upload failed (attempt {attempt + 1}): {sap_error}")
 
-                # SAP confirmed the candidate was added despite the exception — treat as success
                 if sap_screen_error and any(msg in sap_screen_error.lower() for msg in SAP_SUCCESS_MESSAGES):
                     log.info(f"     Reclassified as 'Succeeded' — SAP confirmed: {sap_screen_error}")
                     sap_status = "Succeeded"
@@ -402,20 +351,17 @@ def run_pipeline() -> dict:
                     failed_screenshots = []
                     break
 
-        # Reclassify Failed → Already in SAP if the screen message says so
         _err_text = (sap_screen_error or sap_error or "").lower()
         if sap_status == "Failed" and any(p in _err_text for p in ALREADY_IN_SAP_PHRASES):
             sap_status = "Already in SAP"
             log.info(f"     Reclassified as 'Already in SAP' based on: {sap_screen_error or sap_error}")
 
-        # Capture screenshot for every non-success outcome (if not already captured)
         if sap_status != "Succeeded" and not screenshot_captured and bot:
             try:
                 snap_name = f"{jr_no}_{cand_label}_{sap_status.replace(' ', '_')}"
                 snap_path = bot._screenshot(snap_name)
                 failed_screenshots.append({
-                    "name":    f"{snap_name}.png",
-                    "content": snap_path.read_bytes(),
+                    "name": f"{snap_name}.png", "content": snap_path.read_bytes(),
                 })
                 if not sap_screen_error:
                     extracted = bot._extract_screen_error()
@@ -425,33 +371,25 @@ def run_pipeline() -> dict:
             except Exception:
                 pass
 
-        # ── 3c. Update Supabase table ─────────────────────────
-        patch = {
-            "modified_at": _now_iso(),
-        }
-
-        # Handle status update and error messages
+        patch = {"modified_at": _now_iso()}
         if sap_status == "Succeeded":
             patch["upload_to_sap"] = "Succeeded"
-            # Append success to existing error message if any
             try:
                 existing = requests.get(
                     f"{SUPABASE_URL}/rest/v1/{SUPABASE_TABLE}?id=eq.{record_id}&select=error_message",
-                    headers=_headers(),
-                    timeout=10,
+                    headers=_headers(), timeout=10,
                 ).json()
                 if existing and existing[0].get("error_message"):
                     old_msg = existing[0]["error_message"]
                     patch["error_message"] = f"{old_msg}; upload successful on rerun at {_now_iso()}"
             except Exception:
                 pass
-        elif sap_status in ("Pending",):
+        elif sap_status == "Pending":
             patch["upload_to_sap"] = "Pending"
             if sap_error:
                 patch["error_message"] = sap_error[:500]
         else:
             patch["upload_to_sap"] = sap_status
-            # Prefer the actual SAP screen message over the Python exception text
             error_to_store = sap_screen_error or sap_error
             if error_to_store:
                 patch["error_message"] = error_to_store[:500]
@@ -469,17 +407,80 @@ def run_pipeline() -> dict:
             screenshots=failed_screenshots,
         )
 
-        if   sap_status == "Succeeded":    summary["done"]    += 1
-        elif sap_status == "Skipped": summary["skipped"] += 1
-        elif sap_status == "Pending": summary["skipped"] += 1  # Count as skipped (will retry next run)
-        else:                         summary["failed"]  += 1
+        if   sap_status == "Succeeded": counts["done"]    += 1
+        elif sap_status == "Skipped":   counts["skipped"] += 1
+        elif sap_status == "Pending":   counts["skipped"] += 1
+        else:                           counts["failed"]  += 1
 
-    # ── 4. Quit SAP bot ───────────────────────────────────────
     if bot:
         try: bot.quit()
         except Exception: pass
 
-    # ── 5. Send notification per recruiter ────────────────────
+    return by_recruiter, counts
+
+
+# ─────────────────────────────────────────────────────────────
+# MAIN PIPELINE
+# ─────────────────────────────────────────────────────────────
+def run_pipeline() -> dict:
+    run_start = datetime.now(timezone.utc)
+    summary   = {
+        "started_at": run_start.isoformat(),
+        "total": 0, "done": 0, "skipped": 0, "failed": 0, "errors": [],
+    }
+
+    log.info("=" * 60)
+    log.info(f"Form scheduler run started — submit_to_sap={SUBMIT_TO_SAP}, workers={SAP_WORKERS}")
+    if RECORD_IDS:
+        log.info(f"Targeted run — processing {len(RECORD_IDS)} specific record(s): {RECORD_IDS}")
+    else:
+        log.info("Safety-net / manual run — processing all pending records")
+
+    # ── 1. Fetch Pending form-submitted records ───────────────
+    try:
+        if RECORD_IDS:
+            pending = fetch_records_by_ids(RECORD_IDS)
+        else:
+            pending = fetch_form_pending_records(limit=MAX_RECORDS)
+    except Exception as e:
+        log.error(f"Failed to fetch pending records: {e}")
+        summary["errors"].append(f"Fetch records: {e}")
+        return summary
+
+    log.info(f"Found {len(pending)} pending form-submitted record(s)")
+    summary["total"] = len(pending)
+
+    if not pending:
+        log.info("Nothing to process.")
+        return summary
+
+    # ── 2. Split records and dispatch to parallel workers ────────
+    chunks = [pending[i::SAP_WORKERS] for i in range(SAP_WORKERS) if pending[i::SAP_WORKERS]]
+    log.info(f"Dispatching {len(pending)} record(s) across {len(chunks)} worker(s)")
+
+    by_recruiter: dict[str, dict] = {}
+
+    with ThreadPoolExecutor(max_workers=len(chunks)) as executor:
+        futures = {executor.submit(_process_chunk, chunk, SUBMIT_TO_SAP): idx
+                   for idx, chunk in enumerate(chunks)}
+        for future in as_completed(futures):
+            worker_idx = futures[future]
+            try:
+                chunk_by_recruiter, counts = future.result()
+                for email, info in chunk_by_recruiter.items():
+                    if email not in by_recruiter:
+                        by_recruiter[email] = {"results": [], "screenshots": []}
+                    by_recruiter[email]["results"].extend(info["results"])
+                    by_recruiter[email]["screenshots"].extend(info["screenshots"])
+                summary["done"]    += counts["done"]
+                summary["skipped"] += counts["skipped"]
+                summary["failed"]  += counts["failed"]
+                summary["errors"].extend(counts.get("errors", []))
+            except Exception as e:
+                log.error(f"Worker {worker_idx} raised an exception: {e}")
+                summary["errors"].append(f"Worker {worker_idx}: {e}")
+
+    # ── 3. Send notification per recruiter ────────────────────
     if not SEND_EMAIL:
         log.info("Email notifications disabled (SCHEDULER_SEND_EMAIL=false) — skipping.")
         return summary
