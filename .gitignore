@@ -13,3 +13,5 @@ venv/
 *.pdf
 *.docx
 resumes/
+index_old.html
+config.js
