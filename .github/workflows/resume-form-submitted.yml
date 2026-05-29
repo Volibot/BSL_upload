@@ -42,7 +42,6 @@ jobs:
       - name: Run form scheduler (SAP upload + notification)
         env:
           # Supabase
-          INBOX_EMAIL:               ${{ secrets.INBOX_EMAIL }}
           SUPABASE_URL              : ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_ROLE_KEY : ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
           SUPABASE_TABLE            : ${{ secrets.SUPABASE_RESUME_TABLE }}
@@ -55,6 +54,7 @@ jobs:
           AZURE_CLIENT_ID           : ${{ secrets.AZURE_CLIENT_ID }}
           AZURE_CLIENT_SECRET       : ${{ secrets.AZURE_CLIENT_SECRET }}
           AZURE_TENANT_ID           : ${{ secrets.AZURE_TENANT_ID }}
+          SENDER_EMAIL              : ${{ secrets.SENDER_EMAIL }}
           # Scheduler tuning
           SCHEDULER_SUBMIT_TO_SAP   : 'true'
           SCHEDULER_MAX_RECORDS     : '50'
