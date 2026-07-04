@@ -2,7 +2,7 @@ import base64
 import hashlib
 import os
 import requests
-from datetime import datetime
+from datetime import datetime, timezone, timedelta
 from dotenv import load_dotenv
 import streamlit as st
 from streamlit.errors import StreamlitSecretNotFoundError
@@ -133,7 +133,8 @@ def send_upload_notification(access_token, user, results, submit_mode, attachmen
     existing   = [r for r in display_results if r["Status"] == "Already in SAP"]
     failed     = [r for r in display_results if r["Status"] not in ("Success", "Already in SAP")]
     mode_label = "Live Submit" if submit_mode else "Dry Run"
-    timestamp  = datetime.now().strftime("%d %b %Y, %I:%M %p")
+    IST = timezone(timedelta(hours=5, minutes=30))
+    timestamp  = datetime.now(IST).strftime("%d %b %Y, %I:%M %p IST")
 
     # Build results table rows
     has_errors = any(r.get("Error", "").strip() for r in display_results if r["Status"] != "Success")
