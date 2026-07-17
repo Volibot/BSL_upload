@@ -161,12 +161,15 @@ def _resolve_recruiter_email(record: dict) -> str:
     return ""
 
 
-def _add_result(by_recruiter, recruiter_email, file_name, status, error_msg="", screenshots=None):
+def _add_result(by_recruiter, recruiter_email, file_name, status, error_msg="", screenshots=None,
+                jr_no="", client_recruiter="", skill=""):
     if recruiter_email not in by_recruiter:
-        by_recruiter[recruiter_email] = {"results": [], "screenshots": []}
-    by_recruiter[recruiter_email]["results"].append(
-        {"File": file_name, "Status": status, "Error": error_msg or ""}
-    )
+        is_external = not recruiter_email.lower().endswith("@volibits.com")
+        by_recruiter[recruiter_email] = {"results": [], "screenshots": [], "is_external": is_external}
+    by_recruiter[recruiter_email]["results"].append({
+        "File": file_name, "Status": status, "Error": error_msg or "",
+        "JR No": jr_no, "Client Recruiter": client_recruiter, "Skill": skill,
+    })
     if screenshots:
         by_recruiter[recruiter_email]["screenshots"].extend(screenshots)
 
@@ -212,16 +215,18 @@ def _process_chunk(records: list, submit_to_sap: bool) -> tuple[dict, dict]:
                 counts["errors"].append(f"SAP start: {e}")
 
     for record in records:
-        record_id       = _safe(record.get("id"))
-        jr_no           = _safe(record.get("jr_number"))
-        first_name      = _safe(record.get("first_name"))
-        last_name       = _safe(record.get("last_name"))
-        email           = _safe(record.get("email"))
-        phone           = _safe(record.get("phone"))
-        resume_path     = _safe(record.get("resume_path"))
-        file_name       = _safe(record.get("file_name"))
-        recruiter_email = _resolve_recruiter_email(record)
-        cand_label      = f"{first_name} {last_name}".strip() or file_name
+        record_id        = _safe(record.get("id"))
+        jr_no            = _safe(record.get("jr_number"))
+        first_name       = _safe(record.get("first_name"))
+        last_name        = _safe(record.get("last_name"))
+        email            = _safe(record.get("email"))
+        phone            = _safe(record.get("phone"))
+        resume_path      = _safe(record.get("resume_path"))
+        file_name        = _safe(record.get("file_name"))
+        client_recruiter = _safe(record.get("client_recruiter"))
+        skill            = _safe(record.get("skill"))
+        recruiter_email  = _resolve_recruiter_email(record)
+        cand_label       = f"{first_name} {last_name}".strip() or file_name
 
         log.info(f"  → {cand_label} | JR: {jr_no} | id: {record_id}")
 
@@ -250,7 +255,8 @@ def _process_chunk(records: list, submit_to_sap: bool) -> tuple[dict, dict]:
             elif dup_id != record_id:
                 log.info(f"     Duplicate found with status={dup_status} — skipping")
                 counts["skipped"] += 1
-                _add_result(by_recruiter, recruiter_email, file_name, "Failed")
+                _add_result(by_recruiter, recruiter_email, file_name, "Failed",
+                            jr_no=jr_no, client_recruiter=client_recruiter, skill=skill)
                 continue
 
         file_bytes = None
@@ -277,7 +283,8 @@ def _process_chunk(records: list, submit_to_sap: bool) -> tuple[dict, dict]:
         if not bot:
             log.warning("     SAP bot unavailable - leaving record Pending")
             counts["skipped"] += 1
-            _add_result(by_recruiter, recruiter_email, file_name, "Failed")
+            _add_result(by_recruiter, recruiter_email, file_name, "Failed",
+                        jr_no=jr_no, client_recruiter=client_recruiter, skill=skill)
             continue
 
         sap_status          = "Failed"
@@ -405,6 +412,9 @@ def _process_chunk(records: list, submit_to_sap: bool) -> tuple[dict, dict]:
             _report_status(sap_status, sap_error),
             error_msg=sap_screen_error,
             screenshots=failed_screenshots,
+            jr_no=jr_no,
+            client_recruiter=client_recruiter,
+            skill=skill,
         )
 
         if   sap_status == "Succeeded": counts["done"]    += 1
@@ -505,6 +515,7 @@ def run_pipeline() -> dict:
                 submit_mode=SUBMIT_TO_SAP,
                 attachments=info["screenshots"],
                 cc=EMAIL_CC if EMAIL_CC else None,
+                is_external=info.get("is_external", False),
             )
             if ok:
                 log.info(f"📧 Notification sent to {recruiter_email}")

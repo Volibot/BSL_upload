@@ -115,12 +115,13 @@ def _upload_report_status(status: str) -> str:
     return "Failed"
 
 
-def send_upload_notification(access_token, user, results, submit_mode, attachments=None, cc=None):
+def send_upload_notification(access_token, user, results, submit_mode, attachments=None, cc=None, is_external=False):
     """
     Sends an upload summary email via Microsoft Graph API using
     client credentials (app token) — no user approval popup needed.
 
     access_token param kept for API compatibility but not used here.
+    is_external: when True, the Client Recruiter column is omitted.
     """
     if not REPORT_SENDER_EMAIL:
         return False, "Upload report sender email is not configured."
@@ -136,6 +137,8 @@ def send_upload_notification(access_token, user, results, submit_mode, attachmen
     IST = timezone(timedelta(hours=5, minutes=30))
     timestamp  = datetime.now(IST).strftime("%d %b %Y, %I:%M %p IST")
 
+    show_client_recruiter = not is_external
+
     # Build results table rows
     has_errors = any(r.get("Error", "").strip() for r in display_results if r["Status"] != "Success")
     rows_html = ""
@@ -147,6 +150,11 @@ def send_upload_notification(access_token, user, results, submit_mode, attachmen
             bg, icon = "#fff3cd", "⚠️"
         else:
             bg, icon = "#f8d7da", "❌"
+
+        cr_td = (
+            f"<td style='padding:8px 12px; border:1px solid #dee2e6'>{r.get('Client Recruiter') or '—'}</td>"
+            if show_client_recruiter else ""
+        )
         error_td = ""
         if has_errors:
             err_text = r.get("Error", "") or ""
@@ -156,8 +164,11 @@ def send_upload_notification(access_token, user, results, submit_mode, attachmen
             )
         rows_html += f"""
         <tr style='background:{bg}'>
+            <td style='padding:8px 12px; border:1px solid #dee2e6'>{r.get('JR No') or '—'}</td>
             <td style='padding:8px 12px; border:1px solid #dee2e6'>{r['File']}</td>
             <td style='padding:8px 12px; border:1px solid #dee2e6'>{icon} {status}</td>
+            {cr_td}
+            <td style='padding:8px 12px; border:1px solid #dee2e6'>{r.get('Skill') or '—'}</td>
             {error_td}
         </tr>"""
 
@@ -193,8 +204,11 @@ def send_upload_notification(access_token, user, results, submit_mode, attachmen
             <table style='width:100%; border-collapse:collapse; margin-top:16px'>
                 <thead>
                     <tr style='background:#f8f9fa'>
+                        <th style='padding:8px 12px; border:1px solid #dee2e6; text-align:left'>JR No</th>
                         <th style='padding:8px 12px; border:1px solid #dee2e6; text-align:left'>File</th>
                         <th style='padding:8px 12px; border:1px solid #dee2e6; text-align:left'>Status</th>
+                        {"<th style='padding:8px 12px; border:1px solid #dee2e6; text-align:left'>Client Recruiter</th>" if show_client_recruiter else ""}
+                        <th style='padding:8px 12px; border:1px solid #dee2e6; text-align:left'>JD Details</th>
                         {"<th style='padding:8px 12px; border:1px solid #dee2e6; text-align:left'>Error Details</th>" if has_errors else ""}
                     </tr>
                 </thead>
