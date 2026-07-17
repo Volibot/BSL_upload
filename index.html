@@ -4,6 +4,10 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Resume Upload — SAP Candidate Submission</title>
+  <link rel="icon" type="image/png" href="/favicon.png?v=2" />
+  <link rel="shortcut icon" href="/favicon.png?v=2" />
+  <link rel="apple-touch-icon" href="/favicon.png?v=2" />
+  
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet" />
 
@@ -61,6 +65,20 @@
     }
     .page-header h1 { font-size: 22px; font-weight: 700; letter-spacing: -.3px; }
     .page-header p  { font-size: 13px; color: var(--muted); margin-top: 2px; }
+    .header-user {
+      margin-left: auto; display: flex; align-items: center; gap: 10px;
+      flex-shrink: 0;
+    }
+    .header-user-email {
+      font-size: 13px; color: var(--muted); max-width: 200px;
+      overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    }
+    .btn-logout {
+      font-size: 12px; padding: 5px 12px; border: 1px solid var(--border);
+      border-radius: 6px; background: var(--surface); color: var(--muted);
+      cursor: pointer; font-family: var(--font); transition: background .15s, color .15s;
+    }
+    .btn-logout:hover { background: var(--red-bg); color: var(--red); border-color: var(--red); }
 
     /* Card */
     .card {
@@ -78,7 +96,7 @@
       display: grid; grid-template-columns: 1fr 1.6fr;
       gap: 1rem; margin-bottom: 1rem;
     }
-    @media (max-width: 640px) { .form-row { grid-template-columns: 1fr; } }
+    @media (max-width: 640px) { .form-row { grid-template-columns: 1fr !important; } }
     .field { display: flex; flex-direction: column; gap: 5px; }
     .field label {
       font-size: 11px; font-weight: 700; color: var(--muted);
@@ -177,6 +195,8 @@
       outline: none; border-color: var(--accent);
       background: #fff; box-shadow: 0 0 0 3px rgba(15,82,186,.08);
     }
+    .cell-invalid { border-color: var(--red) !important; background: #fff5f5 !important; }
+    .cell-invalid:focus { box-shadow: 0 0 0 3px rgba(185,28,28,.1) !important; }
 
     /* Badges */
     .badge {
@@ -193,6 +213,77 @@
     .badge-saving    { background: #dbeafe; color: #1d4ed8; }
     .badge-queued    { background: #ede9fe; color: #5b21b6; }
     .badge-triggered { background: var(--green-bg); color: var(--green); }
+
+    /* Admin sidebar tab */
+    #admin-sidebar {
+      position: fixed; left: 0; top: 50%; transform: translateY(-50%);
+      z-index: 900; display: none; flex-direction: column;
+      background: var(--accent); border-radius: 0 10px 10px 0;
+      box-shadow: 2px 0 14px rgba(0,0,0,.18); overflow: hidden;
+    }
+    #admin-sidebar.visible { display: flex; }
+    .admin-nav-btn {
+      display: flex; flex-direction: column; align-items: center; gap: 5px;
+      padding: 14px 13px; color: rgba(255,255,255,.85); cursor: pointer;
+      font-size: 10px; font-weight: 600; letter-spacing: .3px;
+      border: none; background: none; font-family: var(--font);
+      transition: background .15s, color .15s; white-space: nowrap;
+    }
+    .admin-nav-btn:hover { background: rgba(255,255,255,.15); color: #fff; }
+    .admin-nav-btn .nav-icon { font-size: 17px; }
+
+    /* Admin drawer */
+    #admin-drawer-overlay {
+      position: fixed; inset: 0; background: rgba(0,0,0,.35);
+      z-index: 1000; display: none;
+    }
+    #admin-drawer-overlay.show { display: block; }
+    #admin-drawer {
+      position: fixed; left: -360px; top: 0; height: 100vh; width: 360px;
+      background: #fff; z-index: 1001;
+      box-shadow: 4px 0 28px rgba(0,0,0,.15);
+      transition: left .25s cubic-bezier(.4,0,.2,1);
+      display: flex; flex-direction: column;
+    }
+    #admin-drawer.open { left: 0; }
+    .drawer-header {
+      padding: 18px 20px; background: var(--accent); color: #fff;
+      display: flex; align-items: center; justify-content: space-between; flex-shrink: 0;
+    }
+    .drawer-title { font-size: 15px; font-weight: 700; }
+    .drawer-close {
+      background: none; border: none; color: rgba(255,255,255,.8);
+      font-size: 20px; cursor: pointer; padding: 0; line-height: 1;
+      transition: color .12s;
+    }
+    .drawer-close:hover { color: #fff; }
+    .drawer-body { flex: 1; padding: 16px; overflow-y: auto; }
+
+    /* Admin user list inside drawer */
+    .admin-user-row {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 10px 12px; border-bottom: 1px solid #f1f5f9; font-size: 13px;
+    }
+    .admin-user-row:last-child { border-bottom: none; }
+    .admin-user-email { color: var(--text); font-size: 13px; }
+    .admin-user-meta  { font-size: 11px; color: var(--muted); margin-top: 2px; }
+    .admin-remove-btn {
+      background: none; border: none; cursor: pointer; color: #d1d5db;
+      font-size: 12px; padding: 4px 8px; border-radius: 4px; transition: color .12s;
+      white-space: nowrap; flex-shrink: 0;
+    }
+    .admin-remove-btn:hover { color: var(--red); }
+    .admin-add-row { display: flex; gap: 8px; margin-top: 1rem; }
+    .admin-add-row input {
+      flex: 1; padding: 9px 12px; font-size: 13px; font-family: var(--font);
+      border: 1.5px solid var(--border); border-radius: 7px;
+      background: var(--light); color: var(--text);
+    }
+    .admin-add-row input:focus {
+      outline: none; border-color: var(--accent);
+      box-shadow: 0 0 0 3px rgba(15,82,186,.1);
+    }
+    .admin-empty { padding: 1.5rem; text-align: center; color: var(--muted); font-size: 13px; }
 
     /* Empty state */
     .empty-state { text-align: center; padding: 3rem 1rem; color: #a0aec0; font-size: 14px; }
@@ -256,9 +347,323 @@
       animation: spin .7s linear infinite; margin-bottom: 14px;
     }
     .loading-text { font-size: 14px; color: var(--muted); font-weight: 500; }
+
+    /* JR searchable combo */
+    .jr-combo { position: relative; }
+    .jr-search-input {
+      padding: 9px 12px; font-size: 14px; font-family: var(--font);
+      border: 1.5px solid var(--border); border-radius: 7px;
+      background: var(--light); color: var(--text);
+      transition: border-color .15s, box-shadow .15s; width: 100%;
+    }
+    .jr-search-input:focus {
+      outline: none; border-color: var(--accent);
+      box-shadow: 0 0 0 3px rgba(15,82,186,.1); background: #fff;
+    }
+    .jr-search-input:disabled { opacity: .55; cursor: not-allowed; }
+    .jr-dropdown {
+      display: none; position: absolute; top: calc(100% + 4px); left: 0; right: 0;
+      background: #fff; border: 1.5px solid var(--border); border-radius: 8px;
+      box-shadow: 0 4px 20px rgba(0,0,0,.1); z-index: 1000;
+      max-height: 260px; overflow-y: auto;
+    }
+    .jr-dropdown.open { display: block; }
+    .jr-opt {
+      padding: 9px 13px; cursor: pointer;
+      border-bottom: 1px solid #f1f5f9; transition: background .1s;
+    }
+    .jr-opt:last-child { border-bottom: none; }
+    .jr-opt:hover, .jr-opt.active { background: #eff6ff; }
+    .jr-opt-label { font-size: 13px; font-weight: 600; color: var(--text); }
+    .jr-opt-sub   { font-size: 11px; color: var(--muted); margin-top: 2px; }
+    .jr-no-results { padding: 12px 13px; font-size: 13px; color: var(--muted); text-align: center; }
+    .jr-deactivated-inline { color: var(--amber) !important; background: var(--amber-bg); border-radius: 6px; text-align: left !important; }
+
+    /* ── JR alert modal ─────────────────────────────────────────── */
+    #jr-alert-overlay {
+      display: none; position: fixed; inset: 0;
+      background: rgba(0,0,0,.45); z-index: 9000;
+      align-items: center; justify-content: center;
+    }
+    #jr-alert-overlay.open { display: flex; }
+    #jr-alert-box {
+      background: #fff; border-radius: 14px; padding: 2rem 2rem 1.5rem;
+      max-width: 420px; width: 90%; text-align: center;
+      box-shadow: 0 20px 60px rgba(0,0,0,.2);
+    }
+    .jr-alert-icon  { font-size: 2.4rem; margin-bottom: .75rem; }
+    .jr-alert-title { font-size: 16px; font-weight: 700; margin-bottom: .5rem; color: var(--text); }
+    .jr-alert-msg   { font-size: 14px; color: var(--muted); margin-bottom: 1.5rem; line-height: 1.5; }
+    #jr-alert-ok    {
+      padding: 9px 28px; background: var(--accent); color: #fff;
+      border: none; border-radius: 8px; font-size: 14px; font-weight: 600;
+      cursor: pointer; font-family: var(--font);
+    }
+    #jr-alert-ok:hover { background: #0a4fa3; }
+
+    /* ── Chat widget ─────────────────────────────────────────────── */
+    #chatToggleWrap {
+      position: fixed; bottom: 24px; right: 24px; z-index: 8000;
+      display: none; flex-direction: column; align-items: center; gap: 5px;
+    }
+    #chatToggleWrap.visible { display: flex; }
+    #chatToggleBtn {
+      width: 52px; height: 52px; border-radius: 50%;
+      background: var(--accent); color: #fff; border: none; font-size: 22px;
+      cursor: pointer; box-shadow: 0 4px 18px rgba(15,82,186,.4);
+      display: flex; align-items: center; justify-content: center;
+      transition: transform .15s, background .15s; flex-shrink: 0; position: relative;
+    }
+    #chatToggleBtn:hover   { background: #0a4fa3; transform: scale(1.07); }
+    #chatToggleBtn.has-unread::after {
+      content: ""; position: absolute; top: 4px; right: 4px;
+      width: 11px; height: 11px; background: var(--red); border-radius: 50%; border: 2px solid #fff;
+    }
+    #chatToggleLabel {
+      font-size: 11px; font-weight: 600; color: #fff; background: var(--accent);
+      padding: 2px 8px; border-radius: 10px; white-space: nowrap;
+      box-shadow: 0 2px 8px rgba(15,82,186,.3); letter-spacing: .02em;
+    }
+    #chatWidget {
+      position: fixed; bottom: 86px; right: 24px; z-index: 8000;
+      width: 340px; height: 480px; background: #fff; border-radius: 14px;
+      box-shadow: 0 8px 40px rgba(0,0,0,.18);
+      display: none; flex-direction: column; overflow: hidden;
+    }
+    #chatWidget.open { display: flex; }
+    .chat-wh {
+      background: var(--accent); color: #fff; padding: 12px 16px;
+      display: flex; align-items: center; justify-content: space-between; flex-shrink: 0;
+    }
+    .chat-wh-title { font-weight: 600; font-size: 15px; }
+    .chat-wh-sub   { font-size: 11px; opacity: .8; margin-top: 1px; }
+    .chat-close-btn { background: none; border: none; color: #fff; font-size: 18px; cursor: pointer; padding: 0 4px; line-height: 1; }
+    .chat-messages  { flex: 1; overflow-y: auto; padding: 14px 12px; display: flex; flex-direction: column; gap: 8px; }
+    .chat-bubble {
+      max-width: 78%; padding: 8px 12px; border-radius: 12px;
+      font-size: 13px; line-height: 1.45; word-break: break-word;
+    }
+    .chat-bubble.mine   { background: var(--accent); color: #fff; align-self: flex-end; border-bottom-right-radius: 3px; }
+    .chat-bubble.theirs { background: var(--light); color: var(--text); align-self: flex-start; border-bottom-left-radius: 3px; border: 1px solid var(--border); }
+    .chat-bubble-meta   { font-size: 10px; margin-top: 4px; color: rgba(255,255,255,.7); }
+    .chat-bubble.theirs .chat-bubble-meta { color: var(--muted); }
+    .chat-bubble.mine .chat-bubble-meta   { text-align: right; }
+    .chat-empty { flex: 1; display: flex; align-items: center; justify-content: center; color: var(--muted); font-size: 13px; text-align: center; padding: 1rem; }
+    .chat-input-row { display: flex; gap: 8px; padding: 10px 12px; border-top: 1px solid var(--border); flex-shrink: 0; }
+    #chatInput {
+      flex: 1; padding: 8px 12px; border: 1.5px solid var(--border); border-radius: 8px;
+      font-size: 13px; font-family: var(--font); outline: none;
+    }
+    #chatInput:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(15,82,186,.1); }
+    #chatSendBtn {
+      padding: 8px 14px; background: var(--accent); color: #fff; border: none;
+      border-radius: 8px; font-size: 13px; cursor: pointer; font-family: var(--font); font-weight: 600;
+    }
+    #chatSendBtn:hover { background: #0a4fa3; }
+    .chat-attach-btn {
+      padding: 8px 10px; background: none; border: 1.5px solid var(--border);
+      border-radius: 8px; font-size: 15px; cursor: pointer; line-height: 1; color: var(--muted);
+      flex-shrink: 0; transition: border-color .15s, color .15s;
+    }
+    .chat-attach-btn:hover { border-color: var(--accent); color: var(--accent); }
+    .chat-attach-btn.has-file { border-color: var(--accent); color: var(--accent); background: rgba(15,82,186,.07); }
+    .chat-preview-row {
+      padding: 6px 12px 0; display: none; align-items: center; gap: 8px; flex-shrink: 0;
+    }
+    .chat-preview-row.visible { display: flex; }
+    .chat-preview-thumb {
+      width: 48px; height: 48px; object-fit: cover; border-radius: 6px;
+      border: 1.5px solid var(--border); cursor: pointer;
+    }
+    .chat-preview-name { font-size: 11px; color: var(--muted); flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .chat-preview-remove { background: none; border: none; color: var(--muted); font-size: 16px; cursor: pointer; padding: 0; line-height: 1; }
+    .chat-preview-remove:hover { color: var(--red); }
+    .chat-bubble-img { display: block; max-width: 100%; border-radius: 6px; margin-top: 6px; cursor: pointer; }
+    .chat-bubble.mine .chat-bubble-img { border: 1px solid rgba(255,255,255,.3); }
+    .chat-bubble.theirs .chat-bubble-img { border: 1px solid var(--border); }
+
+    /* Admin chat panel (inside drawer) */
+    .admin-drawer-tabs { display: flex; gap: 0; border-bottom: 1px solid var(--border); margin-bottom: 1rem; }
+    .admin-tab-btn {
+      flex: 1; padding: 9px 0; border: none; background: none; font-family: var(--font);
+      font-size: 13px; font-weight: 600; color: var(--muted); cursor: pointer;
+      border-bottom: 2px solid transparent; margin-bottom: -1px; transition: color .15s;
+      display: flex; align-items: center; justify-content: center; gap: 6px;
+    }
+    .admin-tab-btn.active { color: var(--accent); border-bottom-color: var(--accent); }
+    .chat-badge {
+      background: var(--red); color: #fff; border-radius: 10px;
+      font-size: 10px; font-weight: 700; padding: 1px 6px; display: none;
+    }
+    .chat-badge.visible { display: inline; }
+    .chat-conv-item {
+      display: flex; align-items: center; gap: 10px; padding: 10px 8px;
+      border-radius: 8px; cursor: pointer; transition: background .1s;
+    }
+    .chat-conv-item:hover { background: var(--light); }
+    .chat-conv-avatar {
+      width: 36px; height: 36px; border-radius: 50%; background: var(--accent);
+      color: #fff; display: flex; align-items: center; justify-content: center;
+      font-size: 15px; font-weight: 700; flex-shrink: 0;
+    }
+    .chat-conv-info { flex: 1; min-width: 0; }
+    .chat-conv-email   { font-size: 13px; font-weight: 600; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .chat-conv-preview { font-size: 11px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-top: 2px; }
+    .chat-conv-unread  { background: var(--red); color: #fff; border-radius: 10px; font-size: 11px; font-weight: 700; padding: 1px 7px; flex-shrink: 0; }
+    .chat-admin-back {
+      display: flex; align-items: center; gap: 6px; padding: 4px 0 10px;
+      background: none; border: none; color: var(--accent); font-size: 13px;
+      cursor: pointer; font-family: var(--font); font-weight: 600;
+    }
+    .chat-admin-msgs { height: 330px; overflow-y: auto; display: flex; flex-direction: column; gap: 8px; padding: 4px 0 10px; }
+    .chat-admin-input-row { display: flex; gap: 8px; padding-top: 10px; border-top: 1px solid var(--border); }
+    .chat-admin-input {
+      flex: 1; padding: 8px 12px; border: 1.5px solid var(--border); border-radius: 8px;
+      font-size: 13px; font-family: var(--font); outline: none;
+    }
+    .chat-admin-input:focus { border-color: var(--accent); }
+    .chat-admin-send {
+      padding: 8px 14px; background: var(--accent); color: #fff; border: none;
+      border-radius: 8px; font-size: 13px; cursor: pointer; font-family: var(--font); font-weight: 600;
+    }
+    .chat-admin-send:hover { background: #0a4fa3; }
+
+    /* ── First-time tour ────────────────────────────────────────── */
+    #tourBackdrop {
+      position: fixed; inset: 0; z-index: 11000;
+      pointer-events: none;
+    }
+    #tourBackdrop.active { pointer-events: none; }
+    .tour-cut {
+      position: fixed; background: rgba(0,0,0,0.58); z-index: 11000; pointer-events: all;
+      transition: all 0.25s ease;
+    }
+    #tourTooltip {
+      position: fixed; z-index: 11001;
+      background: #fff; border-radius: 14px;
+      box-shadow: 0 8px 40px rgba(0,0,0,0.22);
+      padding: 18px 20px 16px;
+      width: 280px;
+      display: none;
+      transition: opacity 0.2s;
+    }
+    #tourTooltip.active { display: block; }
+    #tourTooltip::before {
+      content: '';
+      position: absolute;
+      width: 12px; height: 12px;
+      background: #fff;
+      transform: rotate(45deg);
+    }
+    #tourTooltip.arrow-top::before    { top: -6px; left: 26px; }
+    #tourTooltip.arrow-bottom::before { bottom: -6px; left: 26px; box-shadow: 2px 2px 4px rgba(0,0,0,0.08); }
+    #tourTooltip.arrow-right::before  { right: -6px; top: 20px; }
+    .tour-step-badge {
+      font-size: 11px; font-weight: 700; color: var(--accent);
+      text-transform: uppercase; letter-spacing: .06em; margin-bottom: 6px;
+    }
+    .tour-title {
+      font-size: 15px; font-weight: 700; color: var(--text); margin-bottom: 5px;
+    }
+    .tour-desc {
+      font-size: 13px; color: var(--muted); line-height: 1.55; margin-bottom: 14px;
+    }
+    .tour-actions {
+      display: flex; justify-content: space-between; align-items: center; gap: 8px;
+    }
+    #tourSkip {
+      font-size: 12px; color: var(--muted); background: none; border: none;
+      cursor: pointer; padding: 4px 0; text-decoration: underline;
+    }
+    #tourNext {
+      font-size: 13px; font-weight: 600; color: #fff;
+      background: var(--accent); border: none; border-radius: 8px;
+      padding: 7px 18px; cursor: pointer;
+    }
+    #tourNext:hover { background: #0a4fa3; }
+    .tour-dots {
+      display: flex; gap: 5px; align-items: center;
+    }
+    .tour-dot {
+      width: 6px; height: 6px; border-radius: 50%;
+      background: #d1d5db; transition: background 0.2s;
+    }
+    .tour-dot.active { background: var(--accent); width: 14px; border-radius: 4px; }
+    #tourHighlightRing {
+      position: fixed; z-index: 10999; pointer-events: none;
+      border-radius: 10px;
+      box-shadow: 0 0 0 3px var(--accent), 0 0 0 6px rgba(15,82,186,0.18);
+      transition: all 0.25s ease;
+      display: none;
+    }
+    /* ── Login overlay ──────────────────────────────────────────── */
+    #login-overlay {
+      position: fixed; inset: 0; z-index: 9999;
+      background: rgba(15,23,42,.78); backdrop-filter: blur(5px);
+      display: flex; align-items: center; justify-content: center;
+    }
+    #login-overlay.hidden { display: none; }
+    .login-card {
+      background: #fff; border-radius: 18px; padding: 2.5rem 2rem;
+      width: 100%; max-width: 400px; text-align: center;
+      box-shadow: 0 24px 80px rgba(0,0,0,.28);
+    }
+    .login-icon  { font-size: 2.4rem; margin-bottom: .6rem; }
+    .login-title { font-size: 1.2rem; font-weight: 700; color: var(--text); margin-bottom: .3rem; }
+    .login-sub   { font-size: 13px; color: var(--muted); margin-bottom: 1.4rem; }
+    .login-field {
+      width: 100%; padding: 11px 14px; font-size: 14px; font-family: var(--font);
+      border: 1.5px solid var(--border); border-radius: 8px;
+      background: var(--light); color: var(--text);
+      box-sizing: border-box; margin-bottom: .75rem; text-align: left;
+    }
+    .login-field:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px rgba(15,82,186,.1); }
+    .login-err   { font-size: 13px; color: var(--red); margin-bottom: .75rem; display: none; }
+    .login-hint  { font-size: 12px; color: var(--muted); margin-top: .5rem; }
+    .login-back  {
+      background: none; border: none; color: var(--accent); font-size: 13px;
+      cursor: pointer; padding: 0; margin-top: .6rem; text-decoration: underline;
+    }
   </style>
 </head>
 <body>
+
+<!-- Login overlay — shown until a valid session exists -->
+<div id="login-overlay">
+  <div class="login-card">
+    <div class="login-icon">📤</div>
+    <div class="login-title">Resume Upload Portal</div>
+    <div id="login-err" class="login-err"></div>
+
+    <!-- Step 1: email -->
+    <div id="login-step-email">
+      <div class="login-sub">Enter your work email to continue</div>
+      <input type="email" id="loginEmailInput" class="login-field" placeholder="you@company.com" />
+      <button class="btn btn-primary" id="loginContinueBtn" style="width:100%">Continue</button>
+    </div>
+
+    <!-- Step 2: OTP -->
+    <div id="login-step-otp" style="display:none">
+      <div class="login-sub">A 6-digit code was sent to <strong id="loginEmailDisplay"></strong></div>
+      <input type="text" id="loginOtpInput" class="login-field" placeholder="Enter 6-digit code"
+             maxlength="6" inputmode="numeric" autocomplete="one-time-code" />
+      <button class="btn btn-primary" id="loginVerifyBtn" style="width:100%">Verify</button>
+      <div class="login-hint">Didn't receive it? Check your spam folder.</div>
+      <button class="login-back" id="loginBackBtn">← Use a different email</button>
+    </div>
+  </div>
+</div>
+
+<!-- JR status alert modal -->
+<div id="jr-alert-overlay">
+  <div id="jr-alert-box">
+    <div class="jr-alert-icon" id="jr-alert-icon">⚠️</div>
+    <div class="jr-alert-title" id="jr-alert-title"></div>
+    <div class="jr-alert-msg"   id="jr-alert-msg"></div>
+    <button id="jr-alert-ok">OK</button>
+  </div>
+</div>
+
 <div class="page-wrap">
 
   <!-- Header -->
@@ -268,15 +673,135 @@
       <h1>Resume Upload — SAP Candidate Submission</h1>
       <p>Drop resumes · auto-parse · save to Supabase · SAP upload runs in background</p>
     </div>
+    <div class="header-user" id="headerUser" style="display:none">
+      <span class="header-user-email" id="headerUserEmail"></span>
+      <button class="btn-logout" id="logoutBtn">Sign out</button>
+    </div>
+  </div>
+
+  <!-- Admin sidebar tab (admins only) -->
+  <div id="admin-sidebar">
+    <button class="admin-nav-btn" id="adminUsersBtn">
+      <span class="nav-icon">👥</span>
+      <span>Users</span>
+    </button>
+    <button class="admin-nav-btn" id="adminChatBtn">
+      <span class="nav-icon">💬</span>
+      <span>Chat</span>
+      <span class="chat-badge" id="adminChatBadge">0</span>
+    </button>
+  </div>
+
+  <!-- Admin drawer overlay -->
+  <div id="admin-drawer-overlay"></div>
+
+  <!-- Admin drawer -->
+  <div id="admin-drawer">
+    <div class="drawer-header">
+      <span class="drawer-title" id="drawerTitle">User Management</span>
+      <button class="drawer-close" id="adminDrawerClose">✕</button>
+    </div>
+    <div class="drawer-body">
+      <!-- Tab bar -->
+      <div class="admin-drawer-tabs">
+        <button class="admin-tab-btn active" id="tabUsers">👥 Users</button>
+        <button class="admin-tab-btn" id="tabChat">💬 Chat <span class="chat-badge" id="drawerChatBadge">0</span></button>
+      </div>
+
+      <!-- Users panel -->
+      <div id="drawer-users-panel">
+        <div id="admin-user-list"><div class="admin-empty">Loading…</div></div>
+        <div class="admin-add-row">
+          <input type="email" id="adminNewEmail" placeholder="Add email address (e.g. name@company.com)" />
+          <button class="btn btn-primary" id="adminAddBtn">+ Add User</button>
+        </div>
+      </div>
+
+      <!-- Chat panel -->
+      <div id="drawer-chat-panel" style="display:none">
+        <!-- Conversation list -->
+        <div id="admin-chat-list"><div class="admin-empty">Loading conversations…</div></div>
+        <!-- Conversation view (shown when a user is selected) -->
+        <div id="admin-chat-view" style="display:none">
+          <button class="chat-admin-back" id="adminChatBack">← Back</button>
+          <div style="font-size:12px;color:var(--muted);margin-bottom:8px;" id="adminChatUserLabel"></div>
+          <div class="chat-admin-msgs" id="admin-chat-messages"></div>
+          <div class="chat-preview-row" id="adminPreviewRow">
+            <img id="adminPreviewThumb" class="chat-preview-thumb" src="" alt="preview" onclick="this.closest('.chat-preview-row').querySelector('img').src && window.open(this.src,'_blank')" />
+            <span class="chat-preview-name" id="adminPreviewName"></span>
+            <button class="chat-preview-remove" id="adminPreviewRemove" title="Remove">✕</button>
+          </div>
+          <div class="chat-admin-input-row">
+            <input type="file" id="adminChatFileInput" accept="image/*" style="display:none" />
+            <button class="chat-attach-btn" id="adminChatAttachBtn" title="Attach screenshot">📎</button>
+            <input class="chat-admin-input" id="adminChatInput" placeholder="Type a reply…" />
+            <button class="chat-admin-send" id="adminChatSend">Send</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Floating chat widget (all logged-in users) -->
+  <div id="chatToggleWrap">
+    <button id="chatToggleBtn" title="Support chat">💬</button>
+    <span id="chatToggleLabel">Chat Support</span>
+  </div>
+  <div id="chatWidget">
+    <div class="chat-wh">
+      <div>
+        <div class="chat-wh-title">Support Chat</div>
+        <div class="chat-wh-sub">We typically reply within a few minutes</div>
+      </div>
+      <button class="chat-close-btn" id="chatCloseBtn">✕</button>
+    </div>
+    <div class="chat-messages" id="chatMessages">
+      <div class="chat-empty" style="flex-direction:column;align-items:flex-start;gap:10px;padding:14px 12px;">
+        <div style="font-size:15px;font-weight:600;color:var(--text);">👋 Hi! How can we help?</div>
+        <div style="font-size:12px;color:var(--muted);line-height:1.6;">We typically reply within a few minutes during business hours.</div>
+        <div style="background:var(--light);border:1px solid var(--border);border-radius:10px;padding:10px 12px;font-size:12px;color:var(--text);line-height:1.7;width:100%;box-sizing:border-box;">
+          <div style="font-weight:600;margin-bottom:4px;color:var(--accent);">💡 Quick tips</div>
+          <div>• Use the <strong>📎</strong> button to share a screenshot of an error</div>
+          <div>• Include the <strong>JR number</strong> if your query is about a specific job</div>
+          <div>• For upload failures, mention the <strong>file name &amp; size</strong></div>
+          <div>• Screenshots expire after <strong>48 hours</strong> — download if needed</div>
+        </div>
+      </div>
+    </div>
+    <div class="chat-preview-row" id="chatPreviewRow">
+      <img id="chatPreviewThumb" class="chat-preview-thumb" src="" alt="preview" onclick="this.src && window.open(this.src,'_blank')" />
+      <span class="chat-preview-name" id="chatPreviewName"></span>
+      <button class="chat-preview-remove" id="chatPreviewRemove" title="Remove">✕</button>
+    </div>
+    <div class="chat-input-row">
+      <input type="file" id="chatFileInput" accept="image/*" style="display:none" />
+      <button class="chat-attach-btn" id="chatAttachBtn" title="Attach screenshot">📎</button>
+      <input type="text" id="chatInput" placeholder="Type a message…" maxlength="1000" />
+      <button id="chatSendBtn">Send</button>
+    </div>
   </div>
 
   <!-- Step 1 -->
   <div class="card">
     <div class="card-title">Step 1 — Job Requisition &amp; Recruiter</div>
-    <div class="form-row">
+    <div class="form-row" style="grid-template-columns: 1fr 1fr 1.6fr;">
+      <div class="field" id="clientRecruiterField" style="display:none;">
+        <label>Client Recruiter</label>
+        <div class="jr-combo" id="clientRecruiterCombo">
+          <input type="text" id="clientRecruiterSearch" class="jr-search-input"
+                 placeholder="— Loading… —" autocomplete="off" disabled />
+          <div class="jr-dropdown" id="clientRecruiterDropdown"></div>
+          <input type="hidden" id="clientRecruiterValue" />
+        </div>
+      </div>
       <div class="field">
         <label for="jrNo">JR Number *</label>
-        <select id="jrNo"><option value="">— Loading JRs… —</option></select>
+        <div class="jr-combo" id="jrCombo">
+          <input type="text" id="jrSearch" class="jr-search-input"
+                 placeholder="— Loading JRs… —" autocomplete="off" disabled />
+          <div class="jr-dropdown" id="jrDropdown"></div>
+          <input type="hidden" id="jrNo" />
+        </div>
       </div>
       <div class="field">
         <label for="recruiterEmail">Recruiter Email *</label>
@@ -331,32 +856,16 @@
       </table>
     </div>
 
+    <div class="info-note" id="sap-status-bar" style="display:none; margin-top:1rem;">
+      <span class="note-icon" id="sap-status-icon">⏱</span>
+      <span id="sap-countdown">SAP upload in progress…</span>
+    </div>
+
     <div class="info-note" style="margin-top:1rem;">
       <span class="note-icon">ℹ️</span>
       <span>Resumes are parsed directly in your browser — supports all formats
       including scanned PDFs and image resumes. Review and edit any field before submitting.
       SAP upload runs automatically in the background.</span>
-    </div>
-  </div>
-
-  <!-- Summary -->
-  <div class="card" id="summary-panel">
-    <div class="summary-header">
-      <span class="summary-result-icon" id="summaryIcon">📊</span>
-      <div>
-        <div class="summary-title" id="summaryTitle">Submission Complete</div>
-        <div class="summary-subtitle" id="summarySubtitle"></div>
-      </div>
-    </div>
-    <div class="info-note" id="sap-status-bar" style="display:none; margin-bottom:1rem;">
-      <span class="note-icon" id="sap-status-icon">⏱</span>
-      <span id="sap-countdown">SAP upload in progress…</span>
-    </div>
-    <div class="tbl-wrap">
-      <table class="summary-table">
-        <thead><tr><th>Candidate</th><th>Status</th></tr></thead>
-        <tbody id="summaryTbody"></tbody>
-      </table>
     </div>
   </div>
 
@@ -373,14 +882,20 @@
   // All configuration constants are loaded from config.js
 
   // ── State ─────────────────────────────────────────────────────────────
-  let rows     = [];
-  let nextId   = 1;
-  let jrMaster = {};
+  let rows                  = [];
+  let nextId                = 1;
+  let jrMaster              = {};
+  let jrData                = [];
+  let allJrLookup           = {}; // all JRs including inactive, keyed by jr_no lowercase
+  let clientRecruiterList   = [];
+  let activeClientRecruiter = "";
 
   // ── DOM ───────────────────────────────────────────────────────────────
-  const tbody       = document.getElementById("tbody");
-  const jrSelect    = document.getElementById("jrNo");
-  const recruiterEl = document.getElementById("recruiterEmail");
+  const tbody             = document.getElementById("tbody");
+  const jrSelect          = document.getElementById("jrNo");
+  const recruiterEl       = document.getElementById("recruiterEmail");
+  const clientRecruiterEl     = document.getElementById("clientRecruiterValue");
+  const clientRecruiterSrch   = document.getElementById("clientRecruiterSearch");
   const parseBtn    = document.getElementById("parseBtn");
   const submitBtn   = document.getElementById("submitBtn");
   const clearBtn    = document.getElementById("clearBtn");
@@ -578,8 +1093,10 @@
     text = text.replace(/(\S+)\s*\.\s*(\S+)/g, "$1.$2");
     text = text.replace(/(\w),(\w+@)/g, "$1.$2");
     text = text.replace(/(@[A-Za-z0-9\-]+),([A-Za-z]{2,})/g, "$1.$2");
-    const matches = text.match(/[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}/g);
-    return matches ? matches[0] : "";
+    const matches = text.match(/[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}(?![a-zA-Z0-9])/g);
+    if (!matches) return "";
+    // Remove any dots immediately after @ (e.g. user@.gmail.com → user@gmail.com)
+    return matches[0].replace(/@\.+/, "@");
   }
 
   function extractPhone(text) {
@@ -605,6 +1122,16 @@
       }
     }
     return "";
+  }
+
+  function isValidEmail(email) {
+    return /^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$/.test(email || "");
+  }
+  function isValidPhone(phone) {
+    if (!phone) return false;
+    const digits = phone.replace(/\D/g, "");
+    // 10 digits (bare), 11 (0/1 prefix + 10), 12 (91 + 10), 13 (3-digit code + 10)
+    return digits.length >= 10 && digits.length <= 13;
   }
 
   // ── Rule-based name extraction (fallback when AI unavailable) ──────────
@@ -883,14 +1410,18 @@
     return normNameLine ? `${normNameLine}\n${body}` : text.slice(0, 2500);
   }
 
-  function _buildAIPrompt() {
-    return `You are a resume parser that extracts only the candidate's personal name from the top of resumes.
-OUTPUT FORMAT — respond with EXACTLY these two lines, nothing else:
+  function _buildAIPrompt(needEmail = false, needPhone = false) {
+    const extraOut = [
+      needEmail ? "EMAIL: <candidate email address>" : "",
+      needPhone ? "PHONE: <candidate phone with country code, e.g. +919876543210>" : "",
+    ].filter(Boolean);
+    return `You are a resume parser that extracts the candidate's personal name${needEmail || needPhone ? " and contact details" : ""} from the resume text.
+OUTPUT FORMAT — respond with EXACTLY these lines, nothing else:
 FIRST: <first name or multi-word first name>
-LAST: <last name or surname>
+LAST: <last name or surname>${extraOut.length ? "\n" + extraOut.join("\n") : ""}
 
 ABSOLUTE RULES:
-1. Output ONLY the two lines above. No explanation, no preamble, no markdown.
+1. Output ONLY the lines above. No explanation, no preamble, no markdown.
 candidate names are always at the top of the file not in some paragraphs just look for top section or file header section
 
 2. If you cannot find the name with HIGH confidence, output empty values:
@@ -936,15 +1467,23 @@ E. ALL-CAPS names → convert to title case for output:
 
      (When name is 1-2 initials followed by a real surname, surname is FIRST and initials are LAST)
 
-F. If text is garbled, watermarked, or name is unclear → output empty lines.`;
+F. If text is garbled, watermarked, or name is unclear → output empty lines.${needEmail ? "\nEMAIL RULE: Output only the candidate's own email address (not a recruiter's). Raw email only." : ""}${needPhone ? "\nPHONE RULE: Output the candidate's phone number. Include country code. If only 10 digits with no code, prefix +91. Digits and + only." : ""}`;
   }
 
-  function _parseAINameOutput(raw) {
+  function _parseAIOutput(raw) {
     const firstMatch = raw.match(/^FIRST:[ \t]*(.*)$/m);
     const lastMatch  = raw.match(/^LAST:[ \t]*(.*)$/m);
+    const emailMatch = raw.match(/^EMAIL:[ \t]*(.*)$/m);
+    const phoneMatch = raw.match(/^PHONE:[ \t]*(.*)$/m);
     const rawFirst = (firstMatch ? firstMatch[1] : "").trim();
     const rawLast  = (lastMatch  ? lastMatch[1]  : "").trim();
-    return _validateAndCleanAIName(rawFirst, rawLast);
+    const rawEmail = (emailMatch ? emailMatch[1] : "").trim();
+    const rawPhone = (phoneMatch ? phoneMatch[1] : "").trim().replace(/[\s\-() ]/g, "");
+    return {
+      name:  _validateAndCleanAIName(rawFirst, rawLast),
+      email: /^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$/.test(rawEmail) ? rawEmail : "",
+      phone: rawPhone,
+    };
   }
 
   async function _callGemini(snippet, systemPrompt) {
@@ -957,7 +1496,7 @@ F. If text is garbled, watermarked, or name is unclear → output empty lines.`;
         body: JSON.stringify({
           system_instruction: { parts: [{ text: systemPrompt }] },
           contents: [{ parts: [{ text: `Resume text:\n${snippet}` }] }],
-          generationConfig: { temperature: 0, maxOutputTokens: 60 },
+          generationConfig: { temperature: 0, maxOutputTokens: 120 },
         }),
       }
     );
@@ -967,7 +1506,37 @@ F. If text is garbled, watermarked, or name is unclear → output empty lines.`;
     }
     const data = await res.json();
     const raw = (data?.candidates?.[0]?.content?.parts?.[0]?.text || "").trim();
-    return raw ? _parseAINameOutput(raw) : null;
+    return raw ? _parseAIOutput(raw) : null;
+  }
+
+  async function _callOpenAI(snippet, systemPrompt) {
+    if (!OPENAI_API_KEY || OPENAI_API_KEY.startsWith("YOUR_")) return null;
+    const res = await fetch(
+      "https://api.openai.com/v1/chat/completions",
+      {
+        method: "POST",
+        headers: {
+          "Content-Type":  "application/json",
+          "Authorization": `Bearer ${OPENAI_API_KEY}`,
+        },
+        body: JSON.stringify({
+          model:       "gpt-4o-mini",
+          temperature: 0,
+          max_tokens:  120,
+          messages: [
+            { role: "system", content: systemPrompt },
+            { role: "user",   content: `Resume text:\n${snippet}` },
+          ],
+        }),
+      }
+    );
+    if (!res.ok) {
+      console.warn("OpenAI API error:", res.status);
+      return null;
+    }
+    const data = await res.json();
+    const raw = (data?.choices?.[0]?.message?.content || "").trim();
+    return raw ? _parseAIOutput(raw) : null;
   }
 
   async function _callGroq(snippet, systemPrompt) {
@@ -983,7 +1552,7 @@ F. If text is garbled, watermarked, or name is unclear → output empty lines.`;
         body: JSON.stringify({
           model:       "llama-3.1-8b-instant",
           temperature: 0,
-          max_tokens:  60,
+          max_tokens:  120,
           messages: [
             { role: "system", content: systemPrompt },
             { role: "user",   content: `Resume text:\n${snippet}` },
@@ -997,16 +1566,17 @@ F. If text is garbled, watermarked, or name is unclear → output empty lines.`;
     }
     const data = await res.json();
     const raw = (data?.choices?.[0]?.message?.content || "").trim();
-    return raw ? _parseAINameOutput(raw) : null;
+    return raw ? _parseAIOutput(raw) : null;
   }
 
-  async function extractNameWithAI(text, fileName) {
+  async function extractNameWithAI(text, fileName, needEmail = false, needPhone = false) {
     try {
       let masked = text
-        .replace(/\S+@\S+\.\S+/g, "[EMAIL]")
-        .replace(/(\+91[\s\-]?\d{5}[\s\-]?\d{5}|\b[6-9]\d{9}\b|\+\d{1,3}[\s\-]\d{6,12})/g, "[PHONE]")
         .replace(/\b\d{12}\b/g, "[AADHAR]")
         .replace(/\b[A-Z]{5}\d{4}[A-Z]\b/g, "[PAN]");
+      // Only mask what the AI doesn't need to find
+      if (!needEmail) masked = masked.replace(/\S+@\S+\.\S+/g, "[EMAIL]");
+      if (!needPhone) masked = masked.replace(/(\+91[\s\-]?\d{5}[\s\-]?\d{5}|\b[6-9]\d{9}\b|\+\d{1,3}[\s\-]\d{6,12})/g, "[PHONE]");
 
       masked = masked.replace(/sourced\s+by\s+.{0,80}/gi, "");
       masked = masked.replace(/powered\s+by\s+.{0,60}/gi, "");
@@ -1015,25 +1585,83 @@ F. If text is garbled, watermarked, or name is unclear → output empty lines.`;
       masked = masked.replace(/naukri\.com/gi, "");
       masked = masked.replace(/\bon\s+\d{1,2}\s+\w{3},?\s*'?\d{2,4}/gi, "");
 
-      const snippet = _buildNameSnippet(masked);
-      const systemPrompt = _buildAIPrompt();
+      const snippet      = _buildNameSnippet(masked);
+      const systemPrompt = _buildAIPrompt(needEmail, needPhone);
 
-      // Try Gemini first, fall back to Groq
-      let result = await _callGemini(snippet, systemPrompt);
-      if (result) {
-        console.info(`Gemini extracted: "${result.first}" / "${result.last}" from ${fileName}`);
-        return result;
+      let bestFirst = "", bestLast = "", bestEmail = "", bestPhone = "";
+
+      for (const caller of [_callOpenAI, _callGemini, _callGroq]) {
+        const r = await caller(snippet, systemPrompt);
+        if (!r) continue;
+        if (!bestFirst  && r.name?.first) { bestFirst = r.name.first; bestLast = r.name.last || ""; }
+        if (!bestEmail  && r.email)  bestEmail = r.email;
+        if (!bestPhone  && r.phone)  bestPhone = r.phone;
+        const nameOk  = !!bestFirst;
+        const emailOk = !needEmail || !!bestEmail;
+        const phoneOk = !needPhone || !!bestPhone;
+        if (nameOk && emailOk && phoneOk) break;
       }
 
-      result = await _callGroq(snippet, systemPrompt);
-      if (result) {
-        console.info(`Groq extracted: "${result.first}" / "${result.last}" from ${fileName}`);
-        return result;
-      }
-
+      if (bestFirst || bestEmail || bestPhone)
+        return { first: bestFirst, last: bestLast, email: bestEmail, phone: bestPhone };
       return null;
     } catch (e) {
-      console.warn("AI name extraction failed:", e.message);
+      console.warn("Extraction failed:", e.message);
+      return null;
+    }
+  }
+
+  // ══════════════════════════════════════════════════════════════════════
+  // ║  VISION EXTRACTION (scanned PDFs via OpenAI image input)           ║
+  // ══════════════════════════════════════════════════════════════════════
+
+  async function _visionExtract(file, needEmail = true, needPhone = true) {
+    if (!OPENAI_API_KEY || OPENAI_API_KEY.startsWith("YOUR_")) return null;
+    const ext = (file.name.split(".").pop() || "").toLowerCase();
+    if (ext !== "pdf") return null;
+    try {
+      const buf = await file.arrayBuffer();
+      const pdf = await pdfjsLib.getDocument({ data: buf }).promise;
+      const page = await pdf.getPage(1);
+      const vp   = page.getViewport({ scale: 2.0 });
+      const canvas = document.createElement("canvas");
+      canvas.width = vp.width; canvas.height = vp.height;
+      await page.render({ canvasContext: canvas.getContext("2d"), viewport: vp }).promise;
+      const base64 = canvas.toDataURL("image/png").split(",")[1];
+
+      const systemPrompt = _buildAIPrompt(needEmail, needPhone);
+      const res = await fetch("https://api.openai.com/v1/chat/completions", {
+        method: "POST",
+        headers: {
+          "Content-Type":  "application/json",
+          "Authorization": `Bearer ${OPENAI_API_KEY}`,
+        },
+        body: JSON.stringify({
+          model:       "gpt-4o-mini",
+          temperature: 0,
+          max_tokens:  120,
+          messages: [
+            { role: "system", content: systemPrompt },
+            { role: "user", content: [
+              { type: "image_url", image_url: { url: `data:image/png;base64,${base64}`, detail: "auto" } },
+              { type: "text", text: "Extract the required details from this resume image." }
+            ]}
+          ],
+        }),
+      });
+      if (!res.ok) { console.warn("Vision API error:", res.status); return null; }
+      const data = await res.json();
+      const raw  = (data?.choices?.[0]?.message?.content || "").trim();
+      if (!raw) return null;
+      const parsed = _parseAIOutput(raw);
+      return {
+        first: parsed.name?.first || "",
+        last:  parsed.name?.last  || "",
+        email: parsed.email || "",
+        phone: parsed.phone || "",
+      };
+    } catch (e) {
+      console.warn("Vision extraction failed:", e.message);
       return null;
     }
   }
@@ -1064,28 +1692,63 @@ F. If text is garbled, watermarked, or name is unclear → output empty lines.`;
       console.warn("Python parse API unavailable, falling back to JS parser:", e.message);
     }
 
-    // 2. JS fallback: pdf.js text extraction + Gemini → Groq → rule-based
+    // 2. JS fallback: pdf.js text extraction + AI → rule-based
     const text  = await extractTextFromFile(file);
-    const email = extractEmail(text);
-    const phone = extractPhone(text);
+    let email = extractEmail(text);
+    let phone = extractPhone(text);
+    const needEmail = !isValidEmail(email);
+    const needPhone = !isValidPhone(phone);
     let first = "", last = "";
 
     if (text.trim().length > 30) {
-      const aiResult = await extractNameWithAI(text, file.name);
-      if (aiResult && aiResult.first) {
-        first = aiResult.first;
-        last  = aiResult.last;
+      const aiResult = await extractNameWithAI(text, file.name, needEmail, needPhone);
+      if (aiResult) {
+        if (aiResult.first) {
+          first = aiResult.first;
+          last  = aiResult.last;
+        } else {
+          const ruleResult = extractName(text, email);
+          first = ruleResult.first;
+          last  = ruleResult.last;
+        }
+        if (needEmail && isValidEmail(aiResult.email)) email = aiResult.email;
+        if (needPhone && aiResult.phone) {
+          let p = aiResult.phone;
+          if (!p.startsWith("+") && /^\d{10}$/.test(p)) p = "+91" + p;
+          if (isValidPhone(p)) phone = p;
+        }
       } else {
         const ruleResult = extractName(text, email);
         first = ruleResult.first;
         last  = ruleResult.last;
-        console.info(`Rule-based extracted: "${first}" / "${last}" from ${file.name}`);
       }
     } else {
-      const fnResult = nameFromFilename(file.name);
-      first = fnResult.first;
-      last  = fnResult.last;
-      console.info(`No text, filename fallback: "${first}" / "${last}" from ${file.name}`);
+      // Scanned PDF — text extraction got nothing, try OpenAI vision
+      const visionResult = await _visionExtract(file, needEmail, needPhone);
+      if (visionResult) {
+        first = visionResult.first;
+        last  = visionResult.last;
+        if (isValidEmail(visionResult.email)) email = visionResult.email;
+        if (visionResult.phone) {
+          let p = visionResult.phone;
+          if (!p.startsWith("+") && /^\d{10}$/.test(p)) p = "+91" + p;
+          if (isValidPhone(p)) phone = p;
+        }
+      }
+    }
+
+    // Vision fallback: text was extracted but name still missing (two-column / garbled layout)
+    if (!first) {
+      const visionResult = await _visionExtract(file, !isValidEmail(email), !isValidPhone(phone));
+      if (visionResult) {
+        if (visionResult.first) { first = visionResult.first; last = visionResult.last; }
+        if (!isValidEmail(email) && isValidEmail(visionResult.email)) email = visionResult.email;
+        if (!isValidPhone(phone) && visionResult.phone) {
+          let p = visionResult.phone;
+          if (!p.startsWith("+") && /^\d{10}$/.test(p)) p = "+91" + p;
+          if (isValidPhone(p)) phone = p;
+        }
+      }
     }
 
     return { first_name: first, last_name: last, email, phone };
@@ -1107,11 +1770,10 @@ F. If text is garbled, watermarked, or name is unclear → output empty lines.`;
       `${SUPABASE_URL}/rest/v1/jr_master`
       + `?select=jr_no,skill_name,job_details,client_recruiter,recruiter_email,jr_status`
       + `&order=jr_no.asc`,
-      { headers: sbHeaders() }
+      { headers: sbHeaders(), cache: "no-store" }
     );
     if (!res.ok) throw new Error(`Supabase ${res.status}`);
-    const all = await res.json();
-    return all.filter(jr => (jr.jr_status || "").trim().toLowerCase() === "active");
+    return await res.json(); // all statuses — caller filters active
   }
 
   async function fileHash(file) {
@@ -1216,14 +1878,17 @@ F. If text is garbled, watermarked, or name is unclear → output empty lines.`;
 
   function addFiles(files) {
     let added = 0;
+    const newRows = [];
     Array.from(files)
       .filter(f => ACCEPT_RE.test(f.name))
       .forEach(f => {
         if (rows.some(r => r.file.name === f.name)) return;
-        rows.push({ id: nextId++, file: f, first: "", last: "", email: "", phone: "", status: "pending", path: "" });
+        const row = { id: nextId++, file: f, first: "", last: "", email: "", phone: "", status: "pending", path: "" };
+        rows.push(row);
+        newRows.push(row);
         added++;
       });
-    if (added) { renderTable(); updateButtons(); }
+    if (added) { renderTable(); updateButtons(); runParse(newRows); }
     else if (files.length) toast("No supported files found. Accepted: PDF, DOCX, DOC, TXT", "err", 5000);
   }
 
@@ -1234,7 +1899,11 @@ F. If text is garbled, watermarked, or name is unclear → output empty lines.`;
         <span class="empty-icon">📋</span>Upload resumes to begin</td></tr>`;
       return;
     }
-    tbody.innerHTML = rows.map((r, i) => `
+    tbody.innerHTML = rows.map((r, i) => {
+      const parsed      = r.status === "done";
+      const emailBad    = parsed && (!r.email || !isValidEmail(r.email));
+      const phoneBad    = parsed && (!r.phone || !isValidPhone(r.phone));
+      return `
       <tr data-id="${r.id}">
         <td class="col-sno">${i + 1}</td>
         <td class="col-first">
@@ -1246,11 +1915,11 @@ F. If text is garbled, watermarked, or name is unclear → output empty lines.`;
             placeholder="Last name" oninput="updateField(${r.id},'last',this.value)" />
         </td>
         <td class="col-email">
-          <input class="cell-input" type="email" value="${esc(r.email)}"
+          <input class="cell-input${emailBad ? ' cell-invalid' : ''}" type="email" value="${esc(r.email)}"
             placeholder="email@example.com" oninput="updateField(${r.id},'email',this.value)" />
         </td>
         <td class="col-phone">
-          <input class="cell-input" type="tel" value="${esc(r.phone)}"
+          <input class="cell-input${phoneBad ? ' cell-invalid' : ''}" type="tel" value="${esc(r.phone)}"
             placeholder="+91XXXXXXXXXX" oninput="updateField(${r.id},'phone',this.value)" />
         </td>
         <td class="col-file" title="${esc(r.file.name)}">${esc(r.file.name)}</td>
@@ -1258,12 +1927,23 @@ F. If text is garbled, watermarked, or name is unclear → output empty lines.`;
         <td class="col-del">
           <button class="del-btn" onclick="deleteRow(${r.id})" title="Remove">✕</button>
         </td>
-      </tr>`).join("");
+      </tr>`;
+    }).join("");
   }
 
   function updateField(id, field, val) {
     const row = rows.find(r => r.id === id);
-    if (row) row[field] = val;
+    if (!row) return;
+    row[field] = val;
+    if (field === "email" || field === "phone") {
+      const tr = document.querySelector(`tr[data-id="${id}"]`);
+      if (!tr) return;
+      const inputs = tr.querySelectorAll(".cell-input");
+      const inp = field === "email" ? inputs[2] : inputs[3];
+      if (!inp) return;
+      const bad = field === "email" ? !isValidEmail(val) : !isValidPhone(val);
+      inp.classList.toggle("cell-invalid", bad);
+    }
   }
   function deleteRow(id) {
     rows = rows.filter(r => r.id !== id);
@@ -1278,6 +1958,10 @@ F. If text is garbled, watermarked, or name is unclear → output empty lines.`;
     if (inputs[1]) inputs[1].value = row.last;
     if (inputs[2]) inputs[2].value = row.email;
     if (inputs[3]) inputs[3].value = row.phone;
+    if (row.status === "done") {
+      if (inputs[2]) inputs[2].classList.toggle("cell-invalid", !row.email || !isValidEmail(row.email));
+      if (inputs[3]) inputs[3].classList.toggle("cell-invalid", !row.phone || !isValidPhone(row.phone));
+    }
   }
   function updateButtons() {
     const has = rows.length > 0;
@@ -1285,23 +1969,96 @@ F. If text is garbled, watermarked, or name is unclear → output empty lines.`;
   }
 
   // ── Load JR Master ────────────────────────────────────────────────────
+  function populateClientRecruiters() {
+    clientRecruiterList = [...new Set(
+      jrData.map(jr => (jr.client_recruiter || "").trim()).filter(r => r)
+    )].sort((a, b) => a.localeCompare(b));
+    clientRecruiterSrch.placeholder = clientRecruiterList.length
+      ? "Search client recruiter…"
+      : "— No recruiters —";
+    clientRecruiterSrch.disabled = false;
+  }
+
+  function _buildClientRecruiterList(query) {
+    const dropdown = document.getElementById("clientRecruiterDropdown");
+    const q = (query || "").trim().toLowerCase();
+    const list = q
+      ? clientRecruiterList.filter(r => r.toLowerCase().includes(q))
+      : clientRecruiterList;
+    if (!list.length) {
+      dropdown.innerHTML = `<div class="jr-no-results">${q ? `No match for "${esc(q)}"` : "No recruiters"}</div>`;
+      return;
+    }
+    dropdown.innerHTML = list.map(r => `
+      <div class="jr-opt" data-value="${esc(r)}">
+        <div class="jr-opt-label">${esc(r)}</div>
+      </div>`).join("");
+  }
+
   async function loadJRMaster() {
-    jrSelect.innerHTML = "<option value=''>— Loading JRs… —</option>";
+    const srch = document.getElementById("jrSearch");
+    srch.placeholder = "— Loading JRs… —";
+    srch.disabled    = true;
+    clientRecruiterSrch.disabled = true;
     try {
-      const data = await loadJRs();
+      const allData = await loadJRs();
+      allJrLookup = {};
+      allData.forEach(jr => { allJrLookup[jr.jr_no.toLowerCase()] = jr; });
+      const activeData = allData.filter(jr => (jr.jr_status || "").trim().toLowerCase() === "active");
+      const _userDomain = (recruiterEl.value.trim().toLowerCase().split("@")[1] || "");
+      const _isInternal = ALLOWED_DOMAINS.includes(_userDomain);
+      const data = _isInternal
+        ? activeData
+        : activeData.filter(jr => /subcon/i.test(jr.skill_name || ""));
       jrMaster = {};
-      jrSelect.innerHTML = "<option value=''>— Select JR —</option>";
-      data.forEach(jr => {
-        jrMaster[jr.jr_no] = jr;
-        const opt = document.createElement("option");
-        opt.value = jr.jr_no; opt.textContent = jr.jr_no;
-        jrSelect.appendChild(opt);
-      });
+      jrData   = [];
+      data.forEach(jr => { jrMaster[jr.jr_no] = jr; jrData.push(jr); });
+      populateClientRecruiters();
+      srch.placeholder = data.length ? "Search JR number or skill…" : "— No active JRs —";
+      srch.disabled    = false;
       if (!data.length) toast("No active JR numbers found in Supabase", "info");
     } catch (e) {
-      jrSelect.innerHTML = "<option value=''>— Error loading JRs —</option>";
+      srch.placeholder = "— Error loading JRs —";
+      srch.disabled    = false;
+      clientRecruiterSrch.disabled = false;
       toast("Could not load JRs: " + e.message, "err", 6000);
     }
+  }
+
+  function _buildJrList(query) {
+    const dropdown = document.getElementById("jrDropdown");
+    const q = (query || "").trim().toLowerCase();
+    const source = activeClientRecruiter
+      ? jrData.filter(jr => (jr.client_recruiter || "").trim() === activeClientRecruiter)
+      : jrData;
+    const list = q
+      ? source.filter(jr =>
+          jr.jr_no.toLowerCase().includes(q) ||
+          (jr.skill_name || "").toLowerCase().includes(q)
+        )
+      : source;
+    if (!list.length) {
+      if (q) {
+        const inactiveMatches = Object.values(allJrLookup).filter(jr =>
+          (jr.jr_status || "").trim().toLowerCase() !== "active" &&
+          (jr.jr_no.toLowerCase().includes(q) || (jr.skill_name || "").toLowerCase().includes(q))
+        );
+        if (inactiveMatches.length) {
+          const names = inactiveMatches.map(jr => `<strong>${esc(jr.jr_no)}</strong>`).join(", ");
+          dropdown.innerHTML = `<div class="jr-no-results jr-deactivated-inline">⚠️ ${names} ${inactiveMatches.length === 1 ? "is" : "are"} deactivated — no submissions will be accepted. Use a different JR.</div>`;
+        } else {
+          dropdown.innerHTML = `<div class="jr-no-results">JR "<strong>${esc(q)}</strong>" not found — please recheck the JR number.</div>`;
+        }
+      } else {
+        dropdown.innerHTML = `<div class="jr-no-results">No active JRs available.</div>`;
+      }
+      return;
+    }
+    dropdown.innerHTML = list.map(jr => `
+      <div class="jr-opt" data-value="${esc(jr.jr_no)}">
+        <div class="jr-opt-label">${esc(jr.jr_no)}</div>
+        ${jr.skill_name ? `<div class="jr-opt-sub">${esc(jr.skill_name)}</div>` : ""}
+      </div>`).join("");
   }
 
   jrSelect.addEventListener("change", () => {
@@ -1334,27 +2091,207 @@ F. If text is garbled, watermarked, or name is unclear → output empty lines.`;
     }
   });
 
-  // ── Parse All ─────────────────────────────────────────────────────────
-  parseBtn.addEventListener("click", async () => {
-    const unparsed = rows.filter(r => r.status !== "saved");
-    if (!unparsed.length) { toast("All resumes already parsed", "info"); return; }
+  // ── Client Recruiter searchable combo wiring ─────────────────────────
+  (function () {
+    const srch = clientRecruiterSrch;
+    const drop = document.getElementById("clientRecruiterDropdown");
 
-    parseBtn.disabled = true;
-    setStatus("Parsing resumes…"); showSpin();
+    function openDrop() { _buildClientRecruiterList(srch.value); drop.classList.add("open"); }
+    function closeDrop() { drop.classList.remove("open"); }
 
+    function selectRecruiter(val) {
+      clientRecruiterEl.value = val;
+      srch.value              = val;
+      activeClientRecruiter   = val;
+      closeDrop();
+      // Clear JR selection whenever recruiter filter changes
+      jrSelect.value = "";
+      document.getElementById("jrSearch").value = "";
+      document.getElementById("jr-info").style.display = "none";
+    }
+
+    srch.addEventListener("focus", openDrop);
+
+    srch.addEventListener("input", () => {
+      openDrop();
+      // If user clears the field entirely, reset the filter so all JRs show
+      if (!srch.value.trim()) {
+        clientRecruiterEl.value = "";
+        activeClientRecruiter   = "";
+        jrSelect.value = "";
+        document.getElementById("jrSearch").value = "";
+        document.getElementById("jr-info").style.display = "none";
+      }
+    });
+
+    drop.addEventListener("mousedown", e => {
+      const opt = e.target.closest(".jr-opt");
+      if (!opt) return;
+      e.preventDefault();
+      selectRecruiter(opt.dataset.value);
+    });
+
+    srch.addEventListener("keydown", e => {
+      if (!drop.classList.contains("open")) {
+        if (e.key === "ArrowDown") { e.preventDefault(); openDrop(); }
+        return;
+      }
+      const opts = [...drop.querySelectorAll(".jr-opt")];
+      if (!opts.length) return;
+      const cur = drop.querySelector(".jr-opt.active");
+      const idx = opts.indexOf(cur);
+
+      if (e.key === "ArrowDown") {
+        e.preventDefault();
+        cur?.classList.remove("active");
+        const next = opts[(idx + 1) % opts.length];
+        next.classList.add("active");
+        next.scrollIntoView({ block: "nearest" });
+      } else if (e.key === "ArrowUp") {
+        e.preventDefault();
+        cur?.classList.remove("active");
+        const prev = opts[(idx <= 0 ? opts.length : idx) - 1];
+        prev.classList.add("active");
+        prev.scrollIntoView({ block: "nearest" });
+      } else if (e.key === "Enter") {
+        e.preventDefault();
+        if (cur) selectRecruiter(cur.dataset.value);
+      } else if (e.key === "Escape") {
+        closeDrop();
+        // Restore previously committed value; clear text if nothing committed
+        srch.value = clientRecruiterEl.value;
+        if (!srch.value) {
+          activeClientRecruiter = "";
+          jrSelect.value = "";
+          document.getElementById("jrSearch").value = "";
+          document.getElementById("jr-info").style.display = "none";
+        }
+      }
+    });
+
+    document.addEventListener("click", e => {
+      if (!document.getElementById("clientRecruiterCombo").contains(e.target)) {
+        closeDrop();
+        // Snap back to last committed value when clicking away
+        srch.value = clientRecruiterEl.value;
+        if (!srch.value) activeClientRecruiter = "";
+      }
+    });
+  })();
+
+  // ── JR alert popup ───────────────────────────────────────────────────
+  function showJrAlert(title, msg) {
+    document.getElementById("jr-alert-title").textContent = title;
+    document.getElementById("jr-alert-msg").textContent   = msg;
+    document.getElementById("jr-alert-overlay").classList.add("open");
+  }
+  document.getElementById("jr-alert-ok").addEventListener("click", () => {
+    document.getElementById("jr-alert-overlay").classList.remove("open");
+  });
+
+  // ── JR searchable combo wiring ───────────────────────────────────────
+  (function () {
+    const srch = document.getElementById("jrSearch");
+    const drop = document.getElementById("jrDropdown");
+
+    function openDrop() { _buildJrList(srch.value); drop.classList.add("open"); }
+    function closeDrop() { drop.classList.remove("open"); }
+
+    function selectJr(val) {
+      jrSelect.value = val;
+      srch.value     = val;
+      closeDrop();
+      jrSelect.dispatchEvent(new Event("change"));
+    }
+
+    srch.addEventListener("focus", openDrop);
+
+    srch.addEventListener("input", () => {
+      openDrop();
+      if (jrSelect.value) {
+        jrSelect.value = "";
+        document.getElementById("jr-info").style.display = "none";
+      }
+    });
+
+    drop.addEventListener("mousedown", e => {
+      const opt = e.target.closest(".jr-opt");
+      if (!opt) return;
+      e.preventDefault();
+      selectJr(opt.dataset.value);
+    });
+
+    srch.addEventListener("keydown", e => {
+      if (!drop.classList.contains("open")) {
+        if (e.key === "ArrowDown") { e.preventDefault(); openDrop(); }
+        return;
+      }
+      const opts = [...drop.querySelectorAll(".jr-opt")];
+      if (!opts.length) return;
+      const cur = drop.querySelector(".jr-opt.active");
+      const idx = opts.indexOf(cur);
+
+      if (e.key === "ArrowDown") {
+        e.preventDefault();
+        cur?.classList.remove("active");
+        const next = opts[(idx + 1) % opts.length];
+        next.classList.add("active");
+        next.scrollIntoView({ block: "nearest" });
+      } else if (e.key === "ArrowUp") {
+        e.preventDefault();
+        cur?.classList.remove("active");
+        const prev = opts[(idx <= 0 ? opts.length : idx) - 1];
+        prev.classList.add("active");
+        prev.scrollIntoView({ block: "nearest" });
+      } else if (e.key === "Enter") {
+        e.preventDefault();
+        if (cur) selectJr(cur.dataset.value);
+      } else if (e.key === "Escape") {
+        closeDrop();
+        if (!jrSelect.value) srch.value = "";
+      }
+    });
+
+    document.addEventListener("click", e => {
+      if (!document.getElementById("jrCombo").contains(e.target)) closeDrop();
+    });
+
+    // Show popup when user leaves the field with an unresolved JR
+    srch.addEventListener("blur", () => {
+      setTimeout(() => {
+        const typed = srch.value.trim();
+        if (!typed || jrSelect.value) return; // empty or already selected a valid JR
+        const found = allJrLookup[typed.toLowerCase()];
+        if (found && (found.jr_status || "").trim().toLowerCase() !== "active") {
+          showJrAlert(
+            "JR Deactivated",
+            `JR ${found.jr_no} has been deactivated — no submissions will be accepted. Please use a different JR.`
+          );
+          srch.value = "";
+        } else if (!found) {
+          showJrAlert(
+            "JR Not Found",
+            `"${typed}" was not found in the JR list. Please recheck the JR number.`
+          );
+          srch.value = "";
+        }
+      }, 200);
+    });
+  })();
+
+  // ── Parse ─────────────────────────────────────────────────────────────
+  async function runParse(targetRows) {
+    if (!targetRows || !targetRows.length) return;
+    setStatus("Parsing…"); showSpin();
     let ok = 0, failed = 0;
-
-    for (const row of unparsed) {
+    for (const row of targetRows) {
       row.status = "parsing"; refreshRowStatus(row);
       try {
         const data = await parseResume(row.file);
-
-        // Only fill empty fields — never overwrite user edits
         if (!row.first && data.first_name) row.first = data.first_name;
         if (!row.last  && data.last_name)  row.last  = data.last_name;
         if (!row.email && data.email) row.email = data.email;
         if (!row.phone && data.phone) row.phone = data.phone;
-
         row.status = "done"; ok++;
       } catch (e) {
         row.status = "error"; failed++;
@@ -1362,12 +2299,15 @@ F. If text is garbled, watermarked, or name is unclear → output empty lines.`;
       }
       refreshRowStatus(row);
     }
+    hideSpin(); setStatus("");
+    if (failed) toast(`Parsed ${ok} · Failed ${failed} — check console for details`, "err", 5000);
+    else toast(`Parsed ${ok} resume(s)`, "ok");
+  }
 
-    hideSpin(); setStatus(""); parseBtn.disabled = false;
-    if (failed)
-      toast(`Parsed ${ok} · Failed ${failed} — check console for details`, "err", 5000);
-    else
-      toast(`Parsed ${ok} resume(s) successfully`, "ok");
+  parseBtn.addEventListener("click", async () => {
+    parseBtn.disabled = true;
+    await runParse(rows.filter(r => r.status !== "saved" && r.status !== "done"));
+    parseBtn.disabled = false;
   });
 
   // ── Submit All ────────────────────────────────────────────────────────
@@ -1379,8 +2319,7 @@ F. If text is garbled, watermarked, or name is unclear → output empty lines.`;
     if (!recruiterEmail || !recruiterEmail.includes("@")) {
       toast("Please enter a valid recruiter email", "err"); return;
     }
-    const emailDomain = recruiterEmail.split("@")[1]?.toLowerCase();
-    if (!ALLOWED_DOMAINS.includes(emailDomain)) {
+    if (!_isEmailAllowed(recruiterEmail)) {
       toast("You are not authorized to submit candidates.", "err", 7000); return;
     }
 
@@ -1392,6 +2331,20 @@ F. If text is garbled, watermarked, or name is unclear → output empty lines.`;
     });
     if (incomplete.length) {
       toast("Each row needs a first name, last name, email, and phone before submitting.", "err", 7000);
+      return;
+    }
+
+    const badEmail = toSubmit.filter(r => !isValidEmail(r.email.trim()));
+    if (badEmail.length) {
+      const names = badEmail.map(r => `${r.first} ${r.last}`.trim() || r.file.name).join(", ");
+      toast(`Invalid email address for: ${names}`, "err", 7000);
+      return;
+    }
+
+    const badPhone = toSubmit.filter(r => !isValidPhone(r.phone.trim()));
+    if (badPhone.length) {
+      const names = badPhone.map(r => `${r.first} ${r.last}`.trim() || r.file.name).join(", ");
+      toast(`Phone must be 10 digits for: ${names}`, "err", 7000);
       return;
     }
 
@@ -1576,57 +2529,961 @@ F. If text is garbled, watermarked, or name is unclear → output empty lines.`;
   }
 
   function showSummary({ count, github_fired, summary, estSecs = 0 }) {
-    const panel = document.getElementById("summary-panel");
-    document.getElementById("summaryIcon").textContent  = count > 0 ? "✅" : "⚠️";
-    document.getElementById("summaryTitle").textContent = count > 0
-      ? `${count} Candidate(s) Queued for SAP Upload`
-      : "No new records saved";
-    document.getElementById("summarySubtitle").textContent = count > 0
-      ? (github_fired
-          ? "SAP upload running in background — status updates below."
-          : "Records saved. The next scheduled workflow will process them.")
-      : "Submission failed. Check the errors in the table above and try again.";
-
-    document.getElementById("summaryTbody").innerHTML = (summary || []).map(r => {
-      const ok  = r.status.includes("✓") || r.status === "Duplicate";
-      const cls = ok ? "badge-done" : "badge-error";
-      return `<tr><td>${esc(r.candidate)}</td>
-              <td><span class="badge ${cls}">${esc(r.status)}</span></td></tr>`;
-    }).join("");
-
     const statusBar = document.getElementById("sap-status-bar");
     if (github_fired && estSecs > 0) {
       const estMins = Math.ceil(estSecs / 60);
       document.getElementById("sap-countdown").textContent =
-        `Estimated SAP completion: ~${estMins} min — status badges update automatically.`;
+        `SAP upload running — est. ~${estMins} min · status badges update automatically.`;
       document.getElementById("sap-status-icon").textContent = "⏱";
       statusBar.style.display = "flex";
     } else {
       statusBar.style.display = "none";
     }
-
-    panel.style.display = "block";
-    panel.scrollIntoView({ behavior: "smooth", block: "start" });
   }
 
   // ── Clear ─────────────────────────────────────────────────────────────
   clearBtn.addEventListener("click", () => {
     clearTimeout(_sapPollTimer);
     rows = []; renderTable(); updateButtons();
-    document.getElementById("summary-panel").style.display = "none";
     document.getElementById("sap-status-bar").style.display = "none";
     setStatus("");
+    const srch = document.getElementById("jrSearch");
+    if (srch) { jrSelect.value = ""; srch.value = ""; document.getElementById("jr-info").style.display = "none"; }
+    activeClientRecruiter       = "";
+    clientRecruiterEl.value     = "";
+    clientRecruiterSrch.value   = "";
   });
+
+  // ── Client Recruiter visibility — volibits.com only ──────────────────
+  const clientRecruiterField = document.getElementById("clientRecruiterField");
+
+  function _syncClientRecruiterVisibility() {
+    const email  = recruiterEl.value.trim();
+    const domain = email.includes("@") ? email.split("@")[1].toLowerCase() : "";
+    const show   = domain === "volibits.com";
+    clientRecruiterField.style.display = show ? "" : "none";
+    if (!show) {
+      clientRecruiterEl.value   = "";
+      clientRecruiterSrch.value = "";
+      activeClientRecruiter     = "";
+    }
+  }
+
+  recruiterEl.addEventListener("input",  _syncClientRecruiterVisibility);
+  recruiterEl.addEventListener("change", _syncClientRecruiterVisibility);
+
+  // ── Allowed users cache (loaded once on page load) ────────────────────
+  let _allowedUsersCache = null;   // null = not loaded yet
+
+  async function _loadAllowedUsersCache() {
+    try {
+      const res = await fetch(
+        `${SUPABASE_URL}/rest/v1/resupd_allowed_users?select=email,added_by,added_at&order=added_at.asc`,
+        { headers: sbHeaders() }
+      );
+      if (res.ok) _allowedUsersCache = await res.json();
+    } catch (e) { console.warn("Could not load allowed users:", e.message); }
+    if (!_allowedUsersCache) _allowedUsersCache = [];
+  }
+
+  function _isEmailAllowed(email) {
+    const lower  = email.toLowerCase();
+    const domain = lower.split("@")[1] || "";
+    if (ALLOWED_DOMAINS.includes(domain)) return true;
+    if ((_allowedUsersCache || []).some(u => u.email.toLowerCase() === lower)) return true;
+    // Fallback to config in case Supabase unreachable
+    if ((ALLOWED_EMAILS || []).some(e => e.toLowerCase() === lower)) return true;
+    return false;
+  }
+
+  // ── Admin panel ───────────────────────────────────────────────────────
+  function _isAdmin(email) {
+    return (ADMIN_EMAILS || []).some(a => a.toLowerCase() === email.toLowerCase());
+  }
+
+  function _renderAdminUsers(users) {
+    const list = document.getElementById("admin-user-list");
+    if (!users.length) {
+      list.innerHTML = `<div class="admin-empty">No users added yet.</div>`;
+      return;
+    }
+    list.innerHTML = users.map(u => {
+      const date = u.added_at ? new Date(u.added_at).toLocaleDateString("en-GB") : "";
+      return `
+        <div class="admin-user-row">
+          <div>
+            <div class="admin-user-email">${esc(u.email)}</div>
+            <div class="admin-user-meta">${date ? `Added ${date}` : ""}${u.added_by ? ` by ${esc(u.added_by)}` : ""}</div>
+          </div>
+          <button class="admin-remove-btn" onclick="adminRemoveUser('${esc(u.email)}')" title="Remove">✕ Remove</button>
+        </div>`;
+    }).join("");
+  }
+
+  async function _loadAdminPanel() {
+    document.getElementById("admin-user-list").innerHTML = `<div class="admin-empty">Loading…</div>`;
+    try {
+      const res = await fetch(
+        `${SUPABASE_URL}/rest/v1/resupd_allowed_users?select=email,added_by,added_at&order=added_at.asc`,
+        { headers: sbHeaders() }
+      );
+      if (!res.ok) throw new Error(res.status);
+      const users = await res.json();
+      _allowedUsersCache = users;
+      _renderAdminUsers(users);
+    } catch (e) {
+      document.getElementById("admin-user-list").innerHTML =
+        `<div class="admin-empty" style="color:var(--red)">Failed to load users: ${e.message}</div>`;
+    }
+  }
+
+  async function adminRemoveUser(email) {
+    if (!confirm(`Remove access for ${email}?`)) return;
+    try {
+      const res = await fetch(
+        `${SUPABASE_URL}/rest/v1/resupd_allowed_users?email=eq.${encodeURIComponent(email)}`,
+        { method: "DELETE", headers: sbHeaders() }
+      );
+      if (!res.ok) throw new Error(res.status);
+      toast(`Removed: ${email}`, "ok");
+      _loadAdminPanel();
+    } catch (e) { toast(`Failed to remove: ${e.message}`, "err"); }
+  }
+
+  document.getElementById("adminAddBtn").addEventListener("click", async () => {
+    const input = document.getElementById("adminNewEmail");
+    const email = input.value.trim().toLowerCase();
+    if (!isValidEmail(email)) { toast("Enter a valid email address", "err"); return; }
+    const recruiter = recruiterEl.value.trim();
+    try {
+      const res = await fetch(
+        `${SUPABASE_URL}/rest/v1/resupd_allowed_users`,
+        {
+          method: "POST",
+          headers: sbHeaders(),
+          body: JSON.stringify({ email, added_by: recruiter }),
+        }
+      );
+      if (res.status === 409) { toast("User already exists", "info"); return; }
+      if (!res.ok) throw new Error(res.status);
+      // Send invite email directly via edge function
+      await fetch(`${SUPABASE_URL}/functions/v1/send-auth-email`, {
+        method: "POST",
+        headers: { "Authorization": `Bearer ${SUPABASE_KEY}`, "Content-Type": "application/json" },
+        body: JSON.stringify({ type: "invite", email, cc: ADMIN_EMAILS })
+      });
+      toast(`Added: ${email} — invite email sent`, "ok");
+      input.value = "";
+      _loadAdminPanel();
+    } catch (e) { toast(`Failed to add: ${e.message}`, "err"); }
+  });
+
+  // ── Admin drawer ──────────────────────────────────────────────────────
+  const adminSidebar        = document.getElementById("admin-sidebar");
+  const adminDrawer         = document.getElementById("admin-drawer");
+  const adminDrawerOverlay  = document.getElementById("admin-drawer-overlay");
+
+  function _openAdminDrawer() {
+    adminDrawer.classList.add("open");
+    adminDrawerOverlay.classList.add("show");
+    _loadAdminPanel();
+  }
+  function _closeAdminDrawer() {
+    adminDrawer.classList.remove("open");
+    adminDrawerOverlay.classList.remove("show");
+  }
+
+  document.getElementById("adminUsersBtn").addEventListener("click", _openAdminDrawer);
+  document.getElementById("adminDrawerClose").addEventListener("click", _closeAdminDrawer);
+  adminDrawerOverlay.addEventListener("click", _closeAdminDrawer);
+
+  function _syncAdminPanel() {
+    const email = recruiterEl.value.trim();
+    if (_isAdmin(email)) {
+      adminSidebar.classList.add("visible");
+    } else {
+      adminSidebar.classList.remove("visible");
+      _closeAdminDrawer();
+    }
+  }
+
+  recruiterEl.addEventListener("change", _syncAdminPanel);
+
+  // ── Session ───────────────────────────────────────────────────────────
+  const SESSION_TABLE = "resupd_portal_sessions";
+
+  function _getSession() {
+    try { return JSON.parse(localStorage.getItem("resupd_session") || "null"); }
+    catch { return null; }
+  }
+
+  function _saveSession(email, token) {
+    localStorage.setItem("resupd_session", JSON.stringify({ email, token, at: Date.now() }));
+    localStorage.setItem("recruiterEmail", email);
+  }
+
+  async function _pushSessionToDB(email, token) {
+    await fetch(`${SUPABASE_URL}/rest/v1/${SESSION_TABLE}`, {
+      method:  "POST",
+      headers: { ...sbHeaders(), "Prefer": "resolution=merge-duplicates" },
+      body:    JSON.stringify({ email, token, updated_at: new Date().toISOString() }),
+    });
+  }
+
+  async function _verifySession(email, token) {
+    try {
+      const res  = await fetch(
+        `${SUPABASE_URL}/rest/v1/${SESSION_TABLE}?email=eq.${encodeURIComponent(email)}&select=token`,
+        { headers: sbHeaders() }
+      );
+      const rows = await res.json();
+      return rows?.[0]?.token === token;
+    } catch { return true; } // network error — don't force logout
+  }
+
+  async function _clearSessionFromDB(email) {
+    await fetch(
+      `${SUPABASE_URL}/rest/v1/${SESSION_TABLE}?email=eq.${encodeURIComponent(email)}`,
+      { method: "DELETE", headers: sbHeaders() }
+    );
+  }
+
+  function _showHeaderUser(email) {
+    document.getElementById("headerUser").style.display = "flex";
+    document.getElementById("headerUserEmail").textContent = email;
+  }
+
+  async function _logout(reason) {
+    clearInterval(_chatPollTimer);  clearInterval(_adminPollTimer);
+    _chatPollTimer = null; _adminPollTimer = null; _chatLastId = 0; _adminChatLastId = 0;
+    document.getElementById("chatToggleWrap").classList.remove("visible");
+    document.getElementById("chatToggleBtn").classList.remove("has-unread");
+    document.getElementById("chatWidget").classList.remove("open");
+    const session = _getSession();
+    if (session?.email) await _clearSessionFromDB(session.email);
+    localStorage.removeItem("resupd_session");
+    sessionStorage.removeItem("resupd_otp");
+    // Reset login form to step 1
+    document.getElementById("login-step-otp").style.display   = "none";
+    document.getElementById("login-step-email").style.display = "block";
+    document.getElementById("loginOtpInput").value = "";
+    _loginClearErr();
+    if (reason) _loginShowErr(reason);
+    document.getElementById("headerUser").style.display = "none";
+    _overlay.classList.remove("hidden");
+  }
+
+  // ── OTP (custom — stored in sessionStorage, no extra table needed) ────
+  async function _sendOTP(email) {
+    const code      = String(Math.floor(100000 + Math.random() * 900000));
+    const expiresAt = Date.now() + 10 * 60 * 1000; // 10 min
+    sessionStorage.setItem("resupd_otp", JSON.stringify({ email, code, expiresAt }));
+
+    const mailRes = await fetch(`${SUPABASE_URL}/functions/v1/send-auth-email`, {
+      method:  "POST",
+      headers: { "Authorization": `Bearer ${SUPABASE_KEY}`, "Content-Type": "application/json" },
+      body:    JSON.stringify({ type: "otp", email, code }),
+    });
+    return mailRes.ok;
+  }
+
+  async function _verifyOTP(email, entered) {
+    let stored;
+    try { stored = JSON.parse(sessionStorage.getItem("resupd_otp") || "null"); } catch { return "No code found — request a new one."; }
+    console.log("OTP verify →", { stored, email, entered });
+    if (!stored)               return "No code found — request a new one.";
+    if (stored.email !== email) return "Email mismatch — request a new code.";
+    if (Date.now() > stored.expiresAt) return "Code expired — request a new one.";
+    if (stored.code !== entered)       return "Incorrect code — check the email and try again.";
+    sessionStorage.removeItem("resupd_otp");
+    return null;
+  }
+
+  // ── Login screen ──────────────────────────────────────────────────────
+  const _overlay   = document.getElementById("login-overlay");
+  const _loginErr  = document.getElementById("login-err");
+
+  function _loginShowErr(msg) { _loginErr.textContent = msg; _loginErr.style.display = "block"; }
+  function _loginClearErr()   { _loginErr.style.display = "none"; }
+
+  async function _completeLogin(email) {
+    const token = Array.from(crypto.getRandomValues(new Uint8Array(18)), b => b.toString(16).padStart(2,"0")).join("");
+    _saveSession(email, token);
+    await _pushSessionToDB(email, token);
+    recruiterEl.value = email;
+    _overlay.classList.add("hidden");
+    _showHeaderUser(email);
+    _syncClientRecruiterVisibility();
+    _syncAdminPanel();
+    initChat(email);
+    initTour();
+  }
+
+  document.getElementById("loginContinueBtn").addEventListener("click", async () => {
+    _loginClearErr();
+    const email = document.getElementById("loginEmailInput").value.trim().toLowerCase();
+    if (!isValidEmail(email)) { _loginShowErr("Enter a valid email address."); return; }
+
+    await _loadAllowedUsersCache();
+    if (!_isEmailAllowed(email)) {
+      _loginShowErr("This email is not authorized. Contact your admin.");
+      return;
+    }
+
+    const domain = email.split("@")[1] || "";
+
+    const btn = document.getElementById("loginContinueBtn");
+    btn.textContent = "Sending…"; btn.disabled = true;
+    const ok = await _sendOTP(email);
+    btn.textContent = "Continue"; btn.disabled = false;
+
+    if (ok) {
+      document.getElementById("loginEmailDisplay").textContent = email;
+      document.getElementById("login-step-email").style.display = "none";
+      document.getElementById("login-step-otp").style.display  = "block";
+      document.getElementById("loginOtpInput").focus();
+    } else {
+      _loginShowErr("Failed to send code. Please try again.");
+    }
+  });
+
+  document.getElementById("loginVerifyBtn").addEventListener("click", async () => {
+    _loginClearErr();
+    const email = document.getElementById("loginEmailInput").value.trim().toLowerCase();
+    const token = document.getElementById("loginOtpInput").value.trim();
+    if (token.length !== 6) { _loginShowErr("Enter the 6-digit code from your email."); return; }
+
+    const btn = document.getElementById("loginVerifyBtn");
+    btn.textContent = "Verifying…"; btn.disabled = true;
+    const err = await _verifyOTP(email, token);
+    btn.textContent = "Verify"; btn.disabled = false;
+
+    if (!err) {
+      _completeLogin(email);
+    } else {
+      _loginShowErr(err);
+    }
+  });
+
+  document.getElementById("loginBackBtn").addEventListener("click", () => {
+    _loginClearErr();
+    document.getElementById("login-step-otp").style.display  = "none";
+    document.getElementById("login-step-email").style.display = "block";
+    document.getElementById("loginOtpInput").value = "";
+  });
+
+  document.getElementById("loginEmailInput").addEventListener("keydown", e => {
+    if (e.key === "Enter") document.getElementById("loginContinueBtn").click();
+  });
+  document.getElementById("loginOtpInput").addEventListener("keydown", e => {
+    if (e.key === "Enter") document.getElementById("loginVerifyBtn").click();
+  });
+
+  // ── Logout button ─────────────────────────────────────────────────────
+  document.getElementById("logoutBtn").addEventListener("click", () => _logout());
 
   // ── Init ──────────────────────────────────────────────────────────────
-  const _cachedEmail = localStorage.getItem("recruiterEmail");
-  if (_cachedEmail) recruiterEl.value = _cachedEmail;
-  recruiterEl.addEventListener("change", () => {
-    if (recruiterEl.value.includes("@")) localStorage.setItem("recruiterEmail", recruiterEl.value.trim());
+  (async () => {
+    const _session = _getSession();
+    if (_session?.email && _session?.token) {
+      const valid = await _verifySession(_session.email, _session.token);
+      if (valid) {
+        recruiterEl.value = _session.email;
+        _overlay.classList.add("hidden");
+        _showHeaderUser(_session.email);
+        initChat(_session.email);
+        initTour();
+      } else {
+        localStorage.removeItem("resupd_session");
+        _loginShowErr("You've been signed out — this account was logged in elsewhere.");
+      }
+    } else {
+      localStorage.removeItem("resupd_session");
+      // Pre-fill login email from previous recruiter cache
+      const _prev = localStorage.getItem("recruiterEmail");
+      if (_prev) document.getElementById("loginEmailInput").value = _prev;
+    }
+
+    recruiterEl.addEventListener("change", () => {
+      if (recruiterEl.value.includes("@")) localStorage.setItem("recruiterEmail", recruiterEl.value.trim());
+    });
+
+    _syncClientRecruiterVisibility();
+    _syncAdminPanel();
+    _loadAllowedUsersCache();
+    loadJRMaster();
+    updateButtons();
+
+    // Poll every 60 s to detect session invalidation from another login
+    setInterval(async () => {
+      const s = _getSession();
+      if (!s?.email || !s?.token) return;
+      const valid = await _verifySession(s.email, s.token);
+      if (!valid) _logout("You've been signed out — this account was logged in on another device.");
+    }, 60_000);
+  })();
+
+  // ── Chat ──────────────────────────────────────────────────────────────
+  const CHAT_TABLE      = "resupd_chat_messages";
+  let _chatUserEmail    = "";
+  let _chatLastId       = 0;
+  let _chatPollTimer    = null;
+  let _adminChatLastId  = 0;
+  let _adminChatUser    = "";
+  let _adminPollTimer   = null;
+  let _isAdminUser      = false;
+
+  async function _chatUploadFile(file, userEmail) {
+    const ext  = file.name.split(".").pop() || "png";
+    const path = `${userEmail.replace(/[@.]/g, "_")}/${Date.now()}.${ext}`;
+    const res  = await fetch(`${SUPABASE_URL}/storage/v1/object/chat-attachments/${path}`, {
+      method:  "POST",
+      headers: { "Authorization": `Bearer ${SUPABASE_KEY}`, "Content-Type": file.type || "image/png" },
+      body:    file,
+    });
+    if (!res.ok) return null;
+    return `${SUPABASE_URL}/storage/v1/object/public/chat-attachments/${path}`;
+  }
+
+  async function _chatSend(userEmail, senderEmail, senderRole, message, attachmentUrl = null) {
+    await fetch(`${SUPABASE_URL}/rest/v1/${CHAT_TABLE}`, {
+      method:  "POST",
+      headers: sbHeaders(),
+      body:    JSON.stringify({ user_email: userEmail, sender_email: senderEmail, sender_role: senderRole, message, attachment_url: attachmentUrl }),
+    });
+  }
+
+  async function _chatLoad(userEmail, afterId = 0) {
+    const res = await fetch(
+      `${SUPABASE_URL}/rest/v1/${CHAT_TABLE}?user_email=eq.${encodeURIComponent(userEmail)}&id=gt.${afterId}&order=id.asc&select=*`,
+      { headers: sbHeaders() }
+    );
+    return res.ok ? res.json() : [];
+  }
+
+  async function _chatMarkRead(userEmail) {
+    await fetch(
+      `${SUPABASE_URL}/rest/v1/${CHAT_TABLE}?user_email=eq.${encodeURIComponent(userEmail)}&sender_role=eq.user&is_read=eq.false`,
+      { method: "PATCH", headers: sbHeaders(), body: JSON.stringify({ is_read: true }) }
+    );
+  }
+
+  async function _chatLoadConvList() {
+    const res = await fetch(
+      `${SUPABASE_URL}/rest/v1/${CHAT_TABLE}?order=id.desc&select=*`,
+      { headers: sbHeaders() }
+    );
+    if (!res.ok) return [];
+    const all  = await res.json();
+    const seen = {}, convs = [];
+    for (const m of all) { if (!seen[m.user_email]) { seen[m.user_email] = true; convs.push(m); } }
+    return convs;
+  }
+
+  async function _chatUnreadCounts() {
+    const res = await fetch(
+      `${SUPABASE_URL}/rest/v1/${CHAT_TABLE}?sender_role=eq.user&is_read=eq.false&select=user_email`,
+      { headers: sbHeaders() }
+    );
+    if (!res.ok) return {};
+    const rows = await res.json();
+    const counts = {};
+    rows.forEach(r => { counts[r.user_email] = (counts[r.user_email] || 0) + 1; });
+    return counts;
+  }
+
+  function _chatBubble(msg, myEmail) {
+    const mine  = msg.sender_email === myEmail;
+    const time  = new Date(msg.created_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+    const label = mine ? "You" : (msg.sender_role === "admin" ? "Support" : msg.sender_email.split("@")[0]);
+    const imgHtml = msg.attachment_url
+      ? `<img class="chat-bubble-img" src="${esc(msg.attachment_url)}" alt="screenshot" onclick="window.open('${esc(msg.attachment_url)}','_blank')" />`
+      : "";
+    const textHtml = msg.message ? `${esc(msg.message)}` : "";
+    return `<div class="chat-bubble ${mine ? "mine" : "theirs"}">${textHtml}${imgHtml}<div class="chat-bubble-meta">${label} · ${time}</div></div>`;
+  }
+
+  // ── User chat widget ──────────────────────────────────────────────────
+  function _chatWidgetAppend(msgs) {
+    const el = document.getElementById("chatMessages");
+    msgs.forEach(m => {
+      el.querySelector(".chat-empty")?.remove();
+      el.insertAdjacentHTML("beforeend", _chatBubble(m, _chatUserEmail));
+      if (m.id > _chatLastId) _chatLastId = m.id;
+    });
+    el.scrollTop = el.scrollHeight;
+  }
+
+  async function _chatWidgetPoll() {
+    const msgs = await _chatLoad(_chatUserEmail, _chatLastId);
+    if (!msgs.length) return;
+    _chatWidgetAppend(msgs);
+    if (!document.getElementById("chatWidget").classList.contains("open")) {
+      document.getElementById("chatToggleBtn").classList.add("has-unread");
+    }
+  }
+
+  function _chatWidgetOpen() {
+    document.getElementById("chatWidget").classList.add("open");
+    document.getElementById("chatToggleBtn").classList.remove("has-unread");
+    document.getElementById("chatMessages").scrollTop = 9999;
+    document.getElementById("chatInput").focus();
+  }
+
+  function _chatWidgetClose() {
+    document.getElementById("chatWidget").classList.remove("open");
+  }
+
+  async function _chatWidgetInit(userEmail) {
+    _chatUserEmail = userEmail;
+    document.getElementById("chatToggleWrap").classList.add("visible");
+    const msgs = await _chatLoad(userEmail, 0);
+    _chatWidgetAppend(msgs);
+    _chatPollTimer = setInterval(_chatWidgetPoll, 5000);
+  }
+
+  document.getElementById("chatToggleBtn").addEventListener("click", () => {
+    const open = document.getElementById("chatWidget").classList.contains("open");
+    open ? _chatWidgetClose() : _chatWidgetOpen();
+  });
+  document.getElementById("chatCloseBtn").addEventListener("click", _chatWidgetClose);
+
+  const _chatNotifyThrottle = {}; // email → last notify timestamp
+  function _chatNotifyAdmins(fromEmail, message) {
+    const now  = Date.now();
+    const last = _chatNotifyThrottle[fromEmail] || 0;
+    if (now - last < 5 * 60 * 1000) return; // max one notification per 5 min per user
+    _chatNotifyThrottle[fromEmail] = now;
+    fetch(`${SUPABASE_URL}/functions/v1/send-auth-email`, {
+      method:  "POST",
+      headers: { "Authorization": `Bearer ${SUPABASE_KEY}`, "Content-Type": "application/json" },
+      body:    JSON.stringify({ type: "chat-notify", from_email: fromEmail, message, admin_emails: ADMIN_EMAILS }),
+    }).catch(() => {});
+  }
+
+  let _chatPendingFile  = null;
+  let _adminPendingFile = null;
+
+  function _setChatPreview(file) {
+    _chatPendingFile = file;
+    const row   = document.getElementById("chatPreviewRow");
+    const thumb = document.getElementById("chatPreviewThumb");
+    const name  = document.getElementById("chatPreviewName");
+    const btn   = document.getElementById("chatAttachBtn");
+    if (file) {
+      thumb.src = URL.createObjectURL(file);
+      name.textContent = file.name;
+      row.classList.add("visible");
+      btn.classList.add("has-file");
+    } else {
+      row.classList.remove("visible");
+      btn.classList.remove("has-file");
+      thumb.src = "";
+      name.textContent = "";
+      document.getElementById("chatFileInput").value = "";
+    }
+  }
+
+  function _setAdminPreview(file) {
+    _adminPendingFile = file;
+    const row   = document.getElementById("adminPreviewRow");
+    const thumb = document.getElementById("adminPreviewThumb");
+    const name  = document.getElementById("adminPreviewName");
+    const btn   = document.getElementById("adminChatAttachBtn");
+    if (file) {
+      thumb.src = URL.createObjectURL(file);
+      name.textContent = file.name;
+      row.classList.add("visible");
+      btn.classList.add("has-file");
+    } else {
+      row.classList.remove("visible");
+      btn.classList.remove("has-file");
+      thumb.src = "";
+      name.textContent = "";
+      document.getElementById("adminChatFileInput").value = "";
+    }
+  }
+
+  document.getElementById("chatAttachBtn").addEventListener("click", () => document.getElementById("chatFileInput").click());
+  document.getElementById("chatFileInput").addEventListener("change", e => _setChatPreview(e.target.files[0] || null));
+  document.getElementById("chatPreviewRemove").addEventListener("click", () => _setChatPreview(null));
+
+  document.getElementById("adminChatAttachBtn").addEventListener("click", () => document.getElementById("adminChatFileInput").click());
+  document.getElementById("adminChatFileInput").addEventListener("change", e => _setAdminPreview(e.target.files[0] || null));
+  document.getElementById("adminPreviewRemove").addEventListener("click", () => _setAdminPreview(null));
+
+  async function _chatWidgetSend() {
+    const input = document.getElementById("chatInput");
+    const msg   = input.value.trim();
+    if (!msg && !_chatPendingFile) return;
+    const btn = document.getElementById("chatSendBtn");
+    btn.textContent = "…"; btn.disabled = true;
+    input.value = "";
+    let attachUrl = null;
+    if (_chatPendingFile) {
+      attachUrl = await _chatUploadFile(_chatPendingFile, _chatUserEmail);
+      _setChatPreview(null);
+    }
+    await _chatSend(_chatUserEmail, _chatUserEmail, "user", msg, attachUrl);
+    _chatNotifyAdmins(_chatUserEmail, msg || "📎 Screenshot shared");
+    const msgs = await _chatLoad(_chatUserEmail, _chatLastId);
+    _chatWidgetAppend(msgs);
+    btn.textContent = "Send"; btn.disabled = false;
+  }
+  document.getElementById("chatSendBtn").addEventListener("click", _chatWidgetSend);
+  document.getElementById("chatInput").addEventListener("keydown", e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); _chatWidgetSend(); } });
+
+  // ── Admin chat panel ──────────────────────────────────────────────────
+  async function _adminChatRenderConvList() {
+    const [convs, unread] = await Promise.all([_chatLoadConvList(), _chatUnreadCounts()]);
+    const el = document.getElementById("admin-chat-list");
+    const totalUnread = Object.values(unread).reduce((a, b) => a + b, 0);
+
+    // Update badges
+    const badge1 = document.getElementById("adminChatBadge");
+    const badge2 = document.getElementById("drawerChatBadge");
+    if (totalUnread > 0) {
+      badge1.textContent = badge2.textContent = totalUnread;
+      badge1.classList.add("visible"); badge2.classList.add("visible");
+    } else {
+      badge1.classList.remove("visible"); badge2.classList.remove("visible");
+    }
+
+    if (!convs.length) { el.innerHTML = `<div class="admin-empty">No conversations yet.</div>`; return; }
+    el.innerHTML = convs.map(m => {
+      const u   = m.user_email;
+      const cnt = unread[u] || 0;
+      const pre = m.message.length > 45 ? m.message.slice(0, 45) + "…" : m.message;
+      return `<div class="chat-conv-item" data-email="${esc(u)}">
+        <div class="chat-conv-avatar">${esc(u[0].toUpperCase())}</div>
+        <div class="chat-conv-info">
+          <div class="chat-conv-email">${esc(u)}</div>
+          <div class="chat-conv-preview">${esc(pre)}</div>
+        </div>
+        ${cnt ? `<span class="chat-conv-unread">${cnt}</span>` : ""}
+      </div>`;
+    }).join("");
+    el.querySelectorAll(".chat-conv-item").forEach(item =>
+      item.addEventListener("click", () => _adminChatOpen(item.dataset.email))
+    );
+  }
+
+  async function _adminChatOpen(userEmail) {
+    _adminChatUser  = userEmail;
+    _adminChatLastId = 0;
+    document.getElementById("admin-chat-list").style.display = "none";
+    document.getElementById("admin-chat-view").style.display = "block";
+    document.getElementById("adminChatUserLabel").textContent = userEmail;
+    document.getElementById("admin-chat-messages").innerHTML = "";
+    await _chatMarkRead(userEmail);
+    const msgs = await _chatLoad(userEmail, 0);
+    const el   = document.getElementById("admin-chat-messages");
+    const me   = _getSession()?.email || "";
+    el.innerHTML = msgs.map(m => _chatBubble(m, me)).join("");
+    msgs.forEach(m => { if (m.id > _adminChatLastId) _adminChatLastId = m.id; });
+    el.scrollTop = el.scrollHeight;
+    await _adminChatRenderConvList(); // refresh badges
+  }
+
+  async function _adminChatPoll() {
+    if (_adminChatUser) {
+      const me   = _getSession()?.email || "";
+      const msgs = await _chatLoad(_adminChatUser, _adminChatLastId);
+      if (msgs.length) {
+        const el = document.getElementById("admin-chat-messages");
+        msgs.forEach(m => {
+          el.insertAdjacentHTML("beforeend", _chatBubble(m, me));
+          if (m.id > _adminChatLastId) _adminChatLastId = m.id;
+        });
+        el.scrollTop = el.scrollHeight;
+        await _chatMarkRead(_adminChatUser);
+      }
+    }
+    await _adminChatRenderConvList();
+  }
+
+  async function _adminChatSend() {
+    const input = document.getElementById("adminChatInput");
+    const msg   = input.value.trim();
+    if ((!msg && !_adminPendingFile) || !_adminChatUser) return;
+    const btn = document.getElementById("adminChatSend");
+    btn.textContent = "…"; btn.disabled = true;
+    input.value = "";
+    const me = _getSession()?.email || "";
+    let attachUrl = null;
+    if (_adminPendingFile) {
+      attachUrl = await _chatUploadFile(_adminPendingFile, me);
+      _setAdminPreview(null);
+    }
+    await _chatSend(_adminChatUser, me, "admin", msg, attachUrl);
+    const msgs = await _chatLoad(_adminChatUser, _adminChatLastId);
+    const el   = document.getElementById("admin-chat-messages");
+    msgs.forEach(m => {
+      el.insertAdjacentHTML("beforeend", _chatBubble(m, me));
+      if (m.id > _adminChatLastId) _adminChatLastId = m.id;
+    });
+    el.scrollTop = el.scrollHeight;
+    btn.textContent = "Send"; btn.disabled = false;
+  }
+
+  document.getElementById("adminChatSend").addEventListener("click", _adminChatSend);
+  document.getElementById("adminChatInput").addEventListener("keydown", e => { if (e.key === "Enter") { e.preventDefault(); _adminChatSend(); } });
+  document.getElementById("adminChatBack").addEventListener("click", () => {
+    _adminChatUser = "";
+    document.getElementById("admin-chat-view").style.display = "none";
+    document.getElementById("admin-chat-list").style.display = "block";
+    _adminChatRenderConvList();
   });
 
-  loadJRMaster();
-  updateButtons();
+  // ── Admin drawer tab switching ─────────────────────────────────────────
+  document.getElementById("tabUsers").addEventListener("click", () => {
+    document.getElementById("tabUsers").classList.add("active");
+    document.getElementById("tabChat").classList.remove("active");
+    document.getElementById("drawer-users-panel").style.display = "block";
+    document.getElementById("drawer-chat-panel").style.display  = "none";
+  });
+  document.getElementById("tabChat").addEventListener("click", async () => {
+    document.getElementById("tabChat").classList.add("active");
+    document.getElementById("tabUsers").classList.remove("active");
+    document.getElementById("drawer-chat-panel").style.display  = "block";
+    document.getElementById("drawer-users-panel").style.display = "none";
+    document.getElementById("admin-chat-view").style.display    = "none";
+    document.getElementById("admin-chat-list").style.display    = "block";
+    await _adminChatRenderConvList();
+  });
+
+  // ── Admin chat sidebar button ─────────────────────────────────────────
+  document.getElementById("adminChatBtn").addEventListener("click", () => {
+    // Open drawer on chat tab
+    document.getElementById("admin-drawer").classList.add("open");
+    document.getElementById("admin-drawer-overlay").classList.add("open");
+    document.getElementById("tabChat").click();
+  });
+
+  // ── Wire chat init into _completeLogin ────────────────────────────────
+  const _origCompleteLogin = _completeLogin;
+  // Chat is started via initChat() called after login
+  async function initChat(email) {
+    _isAdminUser = ADMIN_EMAILS.includes(email.toLowerCase());
+    if (!_isAdminUser) {
+      // Regular user: show widget, hide admin chat button
+      await _chatWidgetInit(email);
+    } else {
+      // Admin: show widget (admins can also chat) + start admin polling
+      await _chatWidgetInit(email);
+      _adminPollTimer = setInterval(_adminChatPoll, 5000);
+      await _adminChatRenderConvList();
+    }
+  }
+</script>
+
+<!-- First-time tour elements -->
+<div id="tourBackdrop">
+  <div class="tour-cut" id="tourCutTop"></div>
+  <div class="tour-cut" id="tourCutBottom"></div>
+  <div class="tour-cut" id="tourCutLeft"></div>
+  <div class="tour-cut" id="tourCutRight"></div>
+</div>
+<div id="tourHighlightRing"></div>
+<div id="tourTooltip">
+  <div class="tour-step-badge" id="tourBadge"></div>
+  <div class="tour-title" id="tourTitle"></div>
+  <div class="tour-desc" id="tourDesc"></div>
+  <div class="tour-actions">
+    <button id="tourSkip">Skip tour</button>
+    <div class="tour-dots" id="tourDots"></div>
+    <button id="tourNext">Next →</button>
+  </div>
+</div>
+
+<script>
+(function() {
+  const TOUR_KEY = "resupd_tour_v1_done";
+
+  const STEPS = [
+    {
+      target: "jrCombo",
+      title:  "Select the JR Number",
+      desc:   "Type or search for the Job Requisition number. Select it from the dropdown to auto-fill recruiter details.",
+      arrow:  "top",
+      align:  "left",
+    },
+    {
+      target: "recruiterEmail",
+      title:  "Recruiter Email",
+      desc:   "This fills automatically when you pick a JR. You can also type or edit the email manually.",
+      arrow:  "top",
+      align:  "left",
+    },
+    {
+      target: "dropZone",
+      title:  "Upload Resumes",
+      desc:   "Drag & drop resume files here, or click to browse. You can upload multiple files at once (PDF, DOCX, DOC, TXT).",
+      arrow:  "top",
+      align:  "left",
+    },
+    {
+      target: "parseBtn",
+      title:  "Parse All Resumes",
+      desc:   "Click this to automatically extract candidate details from all uploaded resumes.",
+      arrow:  "top",
+      align:  "left",
+    },
+    {
+      target: "submitBtn",
+      title:  "Submit to SAP",
+      desc:   "After parsing, click here to submit all candidates directly to SAP SuccessFactors.",
+      arrow:  "top",
+      align:  "left",
+    },
+    {
+      target: "chatToggleWrap",
+      title:  "Chat Support",
+      desc:   "Got a question or hit an error? Click here to chat with our support team anytime.",
+      arrow:  "right",
+      align:  "right",
+    },
+  ];
+
+  let currentStep = 0;
+
+  const backdrop  = document.getElementById("tourBackdrop");
+  const ring      = document.getElementById("tourHighlightRing");
+  const tooltip   = document.getElementById("tourTooltip");
+  const badge     = document.getElementById("tourBadge");
+  const titleEl   = document.getElementById("tourTitle");
+  const descEl    = document.getElementById("tourDesc");
+  const dotsEl    = document.getElementById("tourDots");
+  const nextBtn   = document.getElementById("tourNext");
+  const skipBtn   = document.getElementById("tourSkip");
+
+  const cutTop    = document.getElementById("tourCutTop");
+  const cutBottom = document.getElementById("tourCutBottom");
+  const cutLeft   = document.getElementById("tourCutLeft");
+  const cutRight  = document.getElementById("tourCutRight");
+
+  function pad(rect, p) {
+    return {
+      top:    rect.top    - p,
+      left:   rect.left   - p,
+      right:  rect.right  + p,
+      bottom: rect.bottom + p,
+      width:  rect.width  + p * 2,
+      height: rect.height + p * 2,
+    };
+  }
+
+  function positionCuts(r) {
+    const vw = window.innerWidth, vh = window.innerHeight;
+    Object.assign(cutTop.style,    { top: "0",       left: "0",       width: vw+"px",         height: r.top+"px" });
+    Object.assign(cutBottom.style, { top: r.bottom+"px", left: "0",   width: vw+"px",         height: (vh-r.bottom)+"px" });
+    Object.assign(cutLeft.style,   { top: r.top+"px",    left: "0",   width: r.left+"px",     height: r.height+"px" });
+    Object.assign(cutRight.style,  { top: r.top+"px",    left: r.right+"px", width: (vw-r.right)+"px", height: r.height+"px" });
+  }
+
+  function showStep(i) {
+    const step = STEPS[i];
+    const el   = document.getElementById(step.target);
+    if (!el) { advance(); return; }
+
+    el.scrollIntoView({ behavior: "smooth", block: "center" });
+
+    setTimeout(() => {
+      const raw = el.getBoundingClientRect();
+      const r   = pad(raw, 8);
+
+      // spotlight cuts
+      positionCuts(r);
+      backdrop.classList.add("active");
+      [cutTop, cutBottom, cutLeft, cutRight].forEach(c => c.style.display = "block");
+
+      // highlight ring
+      Object.assign(ring.style, {
+        display: "block",
+        top:    r.top    + "px",
+        left:   r.left   + "px",
+        width:  r.width  + "px",
+        height: r.height + "px",
+      });
+
+      // tooltip content
+      badge.textContent  = `Step ${i + 1} of ${STEPS.length}`;
+      titleEl.textContent = step.title;
+      descEl.textContent  = step.desc;
+      nextBtn.textContent = i === STEPS.length - 1 ? "Got it! ✓" : "Next →";
+
+      // dots
+      dotsEl.innerHTML = STEPS.map((_, idx) =>
+        `<div class="tour-dot${idx === i ? " active" : ""}"></div>`
+      ).join("");
+
+      // position tooltip
+      tooltip.className = "active";
+      const vw = window.innerWidth, vh = window.innerHeight;
+      const tw = 290, th = 180;
+
+      if (step.arrow === "right") {
+        // tooltip to the LEFT of the target (for chat button on right edge)
+        let left = r.left - tw - 14;
+        let top  = r.top + r.height / 2 - th / 2;
+        top = Math.max(12, Math.min(top, vh - th - 12));
+        tooltip.style.left = left + "px";
+        tooltip.style.top  = top  + "px";
+        tooltip.style.removeProperty("right");
+        tooltip.classList.add("arrow-right");
+      } else {
+        // tooltip below or above
+        let left = r.left;
+        let top;
+        let arrowClass;
+
+        if (r.bottom + th + 14 < vh) {
+          top = r.bottom + 14;
+          arrowClass = "arrow-top";
+        } else {
+          top = r.top - th - 14;
+          arrowClass = "arrow-bottom";
+        }
+        left = Math.max(12, Math.min(left, vw - tw - 12));
+        tooltip.style.left = left + "px";
+        tooltip.style.top  = top  + "px";
+        tooltip.style.removeProperty("right");
+        tooltip.classList.add(arrowClass);
+      }
+
+      tooltip.classList.add("active");
+    }, 350);
+  }
+
+  function advance() {
+    currentStep++;
+    if (currentStep >= STEPS.length) {
+      endTour();
+    } else {
+      showStep(currentStep);
+    }
+  }
+
+  function endTour() {
+    backdrop.classList.remove("active");
+    [cutTop, cutBottom, cutLeft, cutRight].forEach(c => c.style.display = "none");
+    ring.style.display    = "none";
+    tooltip.className     = "";
+    tooltip.style.cssText = "";
+    localStorage.setItem(TOUR_KEY, "1");
+  }
+
+  nextBtn.addEventListener("click", advance);
+  skipBtn.addEventListener("click", endTour);
+
+  // Expose so login code can call it
+  window.initTour = function() {
+    if (localStorage.getItem(TOUR_KEY)) return;
+    currentStep = 0;
+    // Small delay to let the UI settle after login
+    setTimeout(() => showStep(0), 600);
+  };
+})();
 </script>
 </body>
 </html>

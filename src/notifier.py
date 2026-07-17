@@ -139,6 +139,15 @@ def send_upload_notification(access_token, user, results, submit_mode, attachmen
 
     show_client_recruiter = not is_external
 
+    # Collect unique JR numbers for the subject line
+    jr_nos = list(dict.fromkeys(
+        r.get("JR No", "").strip() for r in display_results if r.get("JR No", "").strip()
+    ))
+    if len(jr_nos) <= 3:
+        jr_label = ", ".join(jr_nos)
+    else:
+        jr_label = ", ".join(jr_nos[:3]) + f" +{len(jr_nos) - 3} more"
+
     # Build results table rows
     has_errors = any(r.get("Error", "").strip() for r in display_results if r["Status"] != "Success")
     rows_html = ""
@@ -245,7 +254,7 @@ def send_upload_notification(access_token, user, results, submit_mode, attachmen
 
         payload = {
             "message": {
-                "subject": f"SAP Upload Report — {len(success)}/{len(results)} succeeded ({mode_label})",
+                "subject": f"SAP Upload Report — {jr_label} — {len(success)}/{len(results)} succeeded ({mode_label})",
                 "body": {"contentType": "HTML", "content": html_body},
                 "toRecipients": [
                     {"emailAddress": {"address": user["email"], "name": user["name"]}}
