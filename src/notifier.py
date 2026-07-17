@@ -208,7 +208,7 @@ def send_upload_notification(access_token, user, results, submit_mode, attachmen
                         <th style='padding:8px 12px; border:1px solid #dee2e6; text-align:left'>File</th>
                         <th style='padding:8px 12px; border:1px solid #dee2e6; text-align:left'>Status</th>
                         {"<th style='padding:8px 12px; border:1px solid #dee2e6; text-align:left'>Client Recruiter</th>" if show_client_recruiter else ""}
-                        <th style='padding:8px 12px; border:1px solid #dee2e6; text-align:left'>JD Details</th>
+                        <th style='padding:8px 12px; border:1px solid #dee2e6; text-align:left'>Role</th>
                         {"<th style='padding:8px 12px; border:1px solid #dee2e6; text-align:left'>Error Details</th>" if has_errors else ""}
                     </tr>
                 </thead>
