@@ -103,7 +103,7 @@ def _upload_report_status(status: str) -> str:
     if status_text == "Success":
         return "Success"
     if "already in sap" in status_lower:
-        return "Already in SAP"
+        return "Already in Client Portal"
     if "job id not found" in status_lower:
         return "Job id not found"
     if "job not found" in status_lower:
@@ -131,8 +131,8 @@ def send_upload_notification(access_token, user, results, submit_mode, attachmen
         for r in results
     ]
     success    = [r for r in display_results if r["Status"] == "Success"]
-    existing   = [r for r in display_results if r["Status"] == "Already in SAP"]
-    failed     = [r for r in display_results if r["Status"] not in ("Success", "Already in SAP")]
+    existing   = [r for r in display_results if r["Status"] == "Already in Client Portal"]
+    failed     = [r for r in display_results if r["Status"] not in ("Success", "Already in Client Portal")]
     mode_label = "Live Submit" if submit_mode else "Dry Run"
     IST = timezone(timedelta(hours=5, minutes=30))
     timestamp  = datetime.now(IST).strftime("%d %b %Y, %I:%M %p IST")
@@ -155,7 +155,7 @@ def send_upload_notification(access_token, user, results, submit_mode, attachmen
         status = r["Status"]
         if status == "Success":
             bg, icon = "#d4edda", "✅"
-        elif status == "Already in SAP":
+        elif status == "Already in Client Portal":
             bg, icon = "#fff3cd", "⚠️"
         else:
             bg, icon = "#f8d7da", "❌"
@@ -195,17 +195,17 @@ def send_upload_notification(access_token, user, results, submit_mode, attachmen
     if failed:
         failed_note = "<p style='margin-top:12px; color:#856404;'>Please refer to attached screenshots for more details.</p>"
     if existing:
-        failed_note += "<p style='margin-top:8px; color:#856404;'>⚠️ Candidates marked <strong>Already in SAP</strong> were found in the system — no action needed.</p>"
+        failed_note += "<p style='margin-top:8px; color:#856404;'>⚠️ Candidates marked <strong>Already in Client Portal</strong> were found in the system — no action needed.</p>"
 
     html_body = f"""
     <html><body style='font-family: Segoe UI, Arial, sans-serif; color: #333; max-width: 600px; margin: auto'>
         <div style='background:#0078d4; padding:24px; border-radius:8px 8px 0 0'>
-            <h2 style='color:white; margin:0'>📄 SAP Upload Report</h2>
+            <h2 style='color:white; margin:0'>📄 Client Portal Upload Report</h2>
             <p style='color:#cce4ff; margin:4px 0 0'>{timestamp} &nbsp;·&nbsp; {mode_label}</p>
         </div>
         <div style='border:1px solid #dee2e6; border-top:none; padding:24px; border-radius:0 0 8px 8px'>
             <p>Hi <strong>{pretty_user_name(user)}</strong>,</p>
-            <p>Here's the summary of your SAP upload session:</p>
+            <p>Here's the summary of your Client Portal upload session:</p>
             <div style='background:{summary_bg}; padding:12px 16px; border-radius:6px; margin:16px 0'>
                 {summary_text}
             </div>
@@ -224,7 +224,7 @@ def send_upload_notification(access_token, user, results, submit_mode, attachmen
                 <tbody>{rows_html}</tbody>
             </table>
             <p style='color:gray; font-size:12px; margin-top:24px'>
-                Sent automatically by the Resume → SAP Upload tool.
+                Sent automatically by the Resume Upload → Client Portal tool.
             </p>
         </div>
     </body></html>
@@ -254,7 +254,7 @@ def send_upload_notification(access_token, user, results, submit_mode, attachmen
 
         payload = {
             "message": {
-                "subject": f"SAP Upload Report — {jr_label} — {len(success)}/{len(results)} succeeded ({mode_label})",
+                "subject": f"Client Portal Upload Report — {jr_label} — {len(success)}/{len(results)} succeeded ({mode_label})",
                 "body": {"contentType": "HTML", "content": html_body},
                 "toRecipients": [
                     {"emailAddress": {"address": user["email"], "name": user["name"]}}
