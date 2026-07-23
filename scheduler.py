@@ -434,7 +434,13 @@ def run_pipeline() -> dict:
     NON_CRITICAL_SAP_ERRORS = ["requisition id", "not found in job list"]
     DEAD_SESSION_ERRORS     = ["invalid session id", "no such session", "disconnected"]
     CANDIDATE_EXISTS_ERRORS = ["candidate already exists in sap"]
-    ALREADY_IN_SAP_PHRASES  = ["already exists", "ownership period"]
+    ALREADY_IN_SAP_PHRASES  = ["already exists", "ownership period", "employee referral"]
+
+    def _classify_dup_status(err_text: str) -> str:
+        t = err_text.lower()
+        if "already exists in the system" in t and ("most recent resume" in t or "choose to upload" in t):
+            return "Already uploaded by Volibits Team"
+        return "Duplicate – Please upload with alternate Mail ID"
 
     def _start_bot():
         b = SAPBot()
@@ -803,11 +809,11 @@ def run_pipeline() -> dict:
                         pass
                     log.error(f"SAP upload failed (attempt {attempt + 1}): {sap_error}")
 
-            # Reclassify Failed → Already in SAP if the screen message says so
+            # Reclassify Failed → specific VoliATS status based on SF error message
             _err_text = (sap_screen_error or sap_error or "").lower()
             if sap_status == "Failed" and any(p in _err_text for p in ALREADY_IN_SAP_PHRASES):
-                sap_status = "Already in SAP"
-                log.info(f"Reclassified as 'Already in SAP' based on: {sap_screen_error or sap_error}")
+                sap_status = _classify_dup_status(sap_screen_error or sap_error or "")
+                log.info(f"Reclassified as '{sap_status}' based on: {sap_screen_error or sap_error}")
 
             # Capture screenshot for every non-success outcome (if not already captured)
             if sap_status != "Succeeded" and not screenshot_captured and bot:

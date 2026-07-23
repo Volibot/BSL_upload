@@ -32,15 +32,29 @@ async function getAzureToken(): Promise<string> {
   return data.access_token;
 }
 
-async function sendEmail(azureToken: string, to: string, subject: string, html: string, cc: string[] = [], senderEmail?: string) {
-  const sender = senderEmail || SENDER_EMAIL;
+interface Attachment { name: string; contentBytes: string; }
+
+async function sendEmail(azureToken: string, to: string | string[], subject: string, html: string, cc: string[] = [], senderEmail?: string, attachments: Attachment[] = [], replyTo?: string, fromName?: string) {
+  const sender     = senderEmail || SENDER_EMAIL;
+  const toList     = Array.isArray(to) ? to : [to];
   const message: Record<string, unknown> = {
     subject,
     body: { contentType: "HTML", content: html },
-    toRecipients: [{ emailAddress: { address: to } }],
+    toRecipients: toList.map(addr => ({ emailAddress: { address: addr } })),
+    from: { emailAddress: { address: sender, ...(fromName ? { name: fromName } : {}) } },
   };
   if (cc.length > 0) {
     message.ccRecipients = cc.map(addr => ({ emailAddress: { address: addr } }));
+  }
+  if (replyTo) {
+    message.replyTo = [{ emailAddress: { address: replyTo } }];
+  }
+  if (attachments.length > 0) {
+    message.attachments = attachments.map(a => ({
+      "@odata.type": "#microsoft.graph.fileAttachment",
+      name: a.name,
+      contentBytes: a.contentBytes,
+    }));
   }
   const res = await fetch(
     `https://graph.microsoft.com/v1.0/users/${sender}/sendMail`,
@@ -121,44 +135,16 @@ function inviteHtml(confirmationUrl: string): string {
       <p style="margin:0;font-size:13px;color:#166534;line-height:1.6;">That's it! You will receive an email notification once the resumes have been uploaded and processed successfully.</p>
     </div>
     <div style="margin-bottom:28px;">
-      <p style="font-size:13px;color:#334155;margin:0 0 12px;"><strong>Post success upload, please share the profile with the tracker below in body of the mail.</strong></p>
-      <div style="overflow-x:auto;">
-        <table style="width:100%;border-collapse:collapse;font-size:12px;min-width:520px;">
-          <thead>
-            <tr style="background:#0f52ba;">
-              <th style="padding:8px 10px;color:#fff;text-align:left;font-weight:600;white-space:nowrap;border:1px solid #1a6fd4;">JR No.</th>
-              <th style="padding:8px 10px;color:#fff;text-align:left;font-weight:600;white-space:nowrap;border:1px solid #1a6fd4;">Date</th>
-              <th style="padding:8px 10px;color:#fff;text-align:left;font-weight:600;white-space:nowrap;border:1px solid #1a6fd4;">Skill</th>
-              <th style="padding:8px 10px;color:#fff;text-align:left;font-weight:600;white-space:nowrap;border:1px solid #1a6fd4;">Candidate Name</th>
-              <th style="padding:8px 10px;color:#fff;text-align:left;font-weight:600;white-space:nowrap;border:1px solid #1a6fd4;">Contact Number</th>
-              <th style="padding:8px 10px;color:#fff;text-align:left;font-weight:600;white-space:nowrap;border:1px solid #1a6fd4;">Email ID</th>
-              <th style="padding:8px 10px;color:#fff;text-align:left;font-weight:600;white-space:nowrap;border:1px solid #1a6fd4;">Current Company</th>
-              <th style="padding:8px 10px;color:#fff;text-align:left;font-weight:600;white-space:nowrap;border:1px solid #1a6fd4;">Total Experience</th>
-              <th style="padding:8px 10px;color:#fff;text-align:left;font-weight:600;white-space:nowrap;border:1px solid #1a6fd4;">Relevant Experience</th>
-              <th style="padding:8px 10px;color:#fff;text-align:left;font-weight:600;white-space:nowrap;border:1px solid #1a6fd4;">Billing Rate</th>
-              <th style="padding:8px 10px;color:#fff;text-align:left;font-weight:600;white-space:nowrap;border:1px solid #1a6fd4;">Notice Period</th>
-              <th style="padding:8px 10px;color:#fff;text-align:left;font-weight:600;white-space:nowrap;border:1px solid #1a6fd4;">Current Location</th>
-              <th style="padding:8px 10px;color:#fff;text-align:left;font-weight:600;white-space:nowrap;border:1px solid #1a6fd4;">Preferred Location</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr style="background:#f8fafc;">
-              <td style="padding:10px;border:1px solid #e2e8f0;">&nbsp;</td>
-              <td style="padding:10px;border:1px solid #e2e8f0;">&nbsp;</td>
-              <td style="padding:10px;border:1px solid #e2e8f0;">&nbsp;</td>
-              <td style="padding:10px;border:1px solid #e2e8f0;">&nbsp;</td>
-              <td style="padding:10px;border:1px solid #e2e8f0;">&nbsp;</td>
-              <td style="padding:10px;border:1px solid #e2e8f0;">&nbsp;</td>
-              <td style="padding:10px;border:1px solid #e2e8f0;">&nbsp;</td>
-              <td style="padding:10px;border:1px solid #e2e8f0;">&nbsp;</td>
-              <td style="padding:10px;border:1px solid #e2e8f0;">&nbsp;</td>
-              <td style="padding:10px;border:1px solid #e2e8f0;">&nbsp;</td>
-              <td style="padding:10px;border:1px solid #e2e8f0;">&nbsp;</td>
-              <td style="padding:10px;border:1px solid #e2e8f0;">&nbsp;</td>
-              <td style="padding:10px;border:1px solid #e2e8f0;">&nbsp;</td>
-            </tr>
-          </tbody>
-        </table>
+      <div style="background:#eff6ff;border-left:3px solid #0f52ba;padding:14px 16px;border-radius:0 8px 8px 0;">
+        <p style="margin:0 0 8px;font-size:13px;font-weight:700;color:#0f52ba;">📧 Step 4 — Send Profiles to the Client</p>
+        <p style="margin:0 0 10px;font-size:13px;color:#1e3a5f;line-height:1.6;">After your uploads succeed, use the built-in <strong>Send Profiles</strong> feature on the portal — no manual copy-pasting needed:</p>
+        <ol style="margin:0;padding-left:18px;font-size:13px;color:#334155;line-height:1.9;">
+          <li>Click the <strong>📧 Send</strong> button on the left side of the portal.</li>
+          <li>Select the candidates you want to share (today's uploads load by default).</li>
+          <li>Fill in the candidate details in the highlighted columns (experience, billing rate, location, etc.).</li>
+          <li>Review the <strong>To</strong>, <strong>Subject</strong>, and <strong>Body</strong> — then click <strong>Send Email</strong>.</li>
+        </ol>
+        <p style="margin:10px 0 0;font-size:12px;color:#475569;">The portal automatically formats the candidate tracker table, attaches the resumes, and sends with your signature.</p>
       </div>
     </div>
     <hr style="border:none;border-top:1px solid #e2e8f0;margin:0 0 24px;">
@@ -268,9 +254,9 @@ serve(async (req) => {
   try {
     const body = await req.json();
 
-    let to: string;
-    let subject: string;
-    let html: string;
+    let to: string | string[] = "";
+    let subject = "";
+    let html    = "";
     let cc: string[] = [];
 
     if (body.type === "invite") {
@@ -285,13 +271,24 @@ serve(async (req) => {
       subject = "[Volibits]: Your Resume Upload Portal login code";
       html    = otpHtml(body.code);
     } else if (body.type === "client-email") {
-      // Outbound candidate profiles email — sent from the recruiter's own mailbox
-      to      = body.to;
-      cc      = Array.isArray(body.cc) ? body.cc.filter((e: string) => e !== body.to) : [];
+      // Outbound candidate profiles email.
+      // Volibits users → send from their own mailbox.
+      // External users → send from the bot mailbox (Graph app only has access to Volibits tenant).
+      to      = Array.isArray(body.to) ? body.to : [body.to];
+      const toSet = new Set((to as string[]).map((e: string) => e.toLowerCase()));
+      cc      = Array.isArray(body.cc) ? body.cc.filter((e: string) => !toSet.has(e.toLowerCase())) : [];
       subject = body.subject;
       html    = body.html_body;
+      const senderDomain    = (body.sender_email || "").split("@")[1]?.toLowerCase() ?? "";
+      const isInternal      = senderDomain === "volibits.com";
+      const effectiveSender = isInternal ? body.sender_email : SENDER_EMAIL;
+      const senderName      = isInternal ? undefined : (body.sender_name || undefined);
+      const replyTo         = isInternal ? undefined : (body.sender_email || undefined);
+      const fileAttachments: Attachment[] = Array.isArray(body.attachments)
+        ? body.attachments.filter((a: Attachment) => a.name && a.contentBytes)
+        : [];
       const azureToken = await getAzureToken();
-      await sendEmail(azureToken, to, subject, html, cc, body.sender_email || SENDER_EMAIL);
+      await sendEmail(azureToken, to, subject, html, cc, effectiveSender, fileAttachments, replyTo, senderName);
       return new Response(JSON.stringify({ success: true }), {
         headers: { ...CORS_HEADERS, "Content-Type": "application/json" },
       });

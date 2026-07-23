@@ -1,159 +1,92 @@
 from pathlib import Path
 import re
-import shutil
 import time
 
-from selenium import webdriver
-from selenium.webdriver.common.action_chains import ActionChains
-from selenium.webdriver.common.by import By
-from selenium.webdriver.chrome.service import Service
-from selenium.webdriver.support import expected_conditions as EC
-from selenium.webdriver.support.ui import WebDriverWait
-from selenium.common.exceptions import StaleElementReferenceException
+from playwright.sync_api import sync_playwright, Page, Browser, BrowserContext, ElementHandle
 
-def start(self):
-    options = webdriver.ChromeOptions()
-    options.add_argument("--headless=new")
-    options.add_argument("--no-sandbox")
-    options.add_argument("--disable-dev-shm-usage")
-    options.add_argument("--disable-gpu")
-    options.add_argument("--window-size=1920,1080")
-    options.add_argument("--remote-debugging-port=9222")
-    options.add_argument("--disable-setuid-sandbox")
-
-    import shutil
-    from selenium.webdriver.chrome.service import Service
-
-    # Use system chromium — always matches system chromedriver
-    chrome_bin = shutil.which("chromium") or shutil.which("chromium-browser")
-    chromedriver_bin = shutil.which("chromedriver")
-
-    print(f"Chrome binary: {chrome_bin}")
-    print(f"ChromeDriver binary: {chromedriver_bin}")
-
-    if not chrome_bin:
-        raise Exception("Chromium not found - check packages.txt")
-    if not chromedriver_bin:
-        raise Exception("ChromeDriver not found - check packages.txt")
-
-    options.binary_location = chrome_bin
-    service = Service(chromedriver_bin)  # use system chromedriver directly
-
-    self.driver = webdriver.Chrome(service=service, options=options)
-    self.wait = WebDriverWait(self.driver, 20)
-    self.driver.get("https://agencysvc44.sapsf.com")
-
-def _find_chrome_binaries():
-    chrome_bin = (
-        shutil.which("google-chrome-stable")
-        or shutil.which("google-chrome")
-        or shutil.which("chromium")
-        or shutil.which("chromium-browser")
-    )
-    chromedriver_bin = shutil.which("chromedriver")
-
-    # GitHub Actions fallback — use webdriver-manager
-    if not chrome_bin or not chromedriver_bin:
-        try:
-            from webdriver_manager.chrome import ChromeDriverManager
-            from webdriver_manager.core.os_manager import ChromeType
-            chromedriver_bin = ChromeDriverManager().install()
-            chrome_bin = chrome_bin or shutil.which("google-chrome-stable") or shutil.which("google-chrome")
-        except Exception as e:
-            print(f"webdriver-manager fallback failed: {e}")
-
-    return chrome_bin, chromedriver_bin
 
 class SAPBot:
     def __init__(self):
-        self.driver = None
-        self.wait = None
-        self.run_started_at = time.strftime("%Y%m%d_%H%M%S")
-        self.screenshot_dir = Path.cwd() / "screenshots" / self.run_started_at
+        self._pw               = None
+        self._browser: Browser = None
+        self._ctx: BrowserContext = None
+        self.page: Page        = None
+        self.run_started_at    = time.strftime("%Y%m%d_%H%M%S")
+        self.screenshot_dir    = Path.cwd() / "screenshots" / self.run_started_at
         self.screenshot_counter = 0
 
     # =========================
     # SETUP & LOGIN
     # =========================
     def start(self):
-        options = webdriver.ChromeOptions()
-        options.add_argument("--headless=new")
-        options.add_argument("--no-sandbox")
-        options.add_argument("--disable-dev-shm-usage")
-        options.add_argument("--disable-gpu")
-        options.add_argument("--window-size=1920,1080")
-        options.add_argument("--disable-setuid-sandbox")
-        options.add_argument("--log-level=3")
-        options.add_experimental_option("excludeSwitches", ["enable-logging"])
-
-        chrome_bin, chromedriver_bin = _find_chrome_binaries()
-
-        print(f"Chrome binary: {chrome_bin}")
-        print(f"ChromeDriver binary: {chromedriver_bin}")
-
-        if not chrome_bin:
-            raise Exception("Chromium not found - check packages.txt")
-        if not chromedriver_bin:
-            raise Exception("ChromeDriver not found - check packages.txt")
-
-        options.binary_location = chrome_bin
-        service = Service(chromedriver_bin)
-
-        self.driver = webdriver.Chrome(service=service, options=options)
-        self.wait = WebDriverWait(self.driver, 20)
-        self.driver.get("https://agencysvc44.sapsf.com")
+        self._pw      = sync_playwright().start()
+        self._browser = self._pw.chromium.launch(
+            headless=True,
+            args=[
+                "--no-sandbox",
+                "--disable-dev-shm-usage",
+                "--disable-gpu",
+                "--disable-setuid-sandbox",
+            ],
+        )
+        self._ctx  = self._browser.new_context(viewport={"width": 1920, "height": 1080})
+        self.page  = self._ctx.new_page()
+        self.page.goto("https://agencysvc44.sapsf.com")
 
     def login(self):
         import os
         from dotenv import load_dotenv
-
         load_dotenv()
 
         company_id = os.getenv("SAP_COMPANY_ID")
-        agency_id = os.getenv("SAP_AGENCY_ID")
-        email = os.getenv("SAP_EMAIL")
-        password = os.getenv("SAP_PASSWORD")
+        agency_id  = os.getenv("SAP_AGENCY_ID")
+        email      = os.getenv("SAP_EMAIL")
+        password   = os.getenv("SAP_PASSWORD")
 
         if not all([company_id, agency_id, email, password]):
-            raise Exception(
-                "Missing SAP credentials - need SAP_COMPANY_ID, SAP_AGENCY_ID, SAP_EMAIL, SAP_PASSWORD"
-            )
+            raise Exception("Missing SAP credentials — need SAP_COMPANY_ID, SAP_AGENCY_ID, SAP_EMAIL, SAP_PASSWORD")
 
         print("Step 1: entering Company ID")
-        time.sleep(2)
-        self.wait.until(EC.presence_of_element_located((By.NAME, "companyId"))).send_keys(company_id)
-        self.driver.find_element(By.CSS_SELECTOR, "button[id*='continueButton']").click()
-        time.sleep(3)
+        self.page.wait_for_selector('[name="companyId"]', timeout=20000)
+        self.page.wait_for_timeout(2000)
+        self.page.fill('[name="companyId"]', company_id)
+        self.page.click("button[id*='continueButton']")
+        self.page.wait_for_timeout(3000)
         self._screenshot("00_company_id_submitted")
 
         print("Step 2: entering credentials")
-        self.wait.until(EC.presence_of_element_located((By.XPATH, "//input[contains(@placeholder,'Agency')]"))).send_keys(
-            agency_id
-        )
-        self.driver.find_element(By.XPATH, "//input[contains(@placeholder,'Email')]").send_keys(email)
-        self.driver.find_element(By.CSS_SELECTOR, "input[type='password']").send_keys(password)
-        self.driver.find_element(By.CSS_SELECTOR, "button[id*='login']").click()
-        time.sleep(5)
+        self.page.wait_for_selector("xpath=//input[contains(@placeholder,'Agency')]", timeout=20000)
+        self.page.fill("xpath=//input[contains(@placeholder,'Agency')]", agency_id)
+        self.page.fill("xpath=//input[contains(@placeholder,'Email')]", email)
+        self.page.fill("input[type='password']", password)
+        self.page.click("button[id*='login']")
+        self.page.wait_for_timeout(5000)
 
-        if "login" in self.driver.current_url.lower():
-            raise Exception("Login failed - check SAP credentials")
+        if "login" in self.page.url.lower():
+            raise Exception("Login failed — check SAP credentials")
 
         print("Logged in successfully")
         self._screenshot("01_logged_in")
 
     def close(self):
-        if self.driver:
-            self.driver.quit()
-            self.driver = None
+        for attr in ("page", "_ctx", "_browser", "_pw"):
+            obj = getattr(self, attr, None)
+            if obj:
+                try:
+                    obj.close() if attr != "_pw" else obj.stop()
+                except Exception:
+                    pass
+                setattr(self, attr, None)
 
     def quit(self):
         self.close()
 
+    # =========================
+    # DIALOG / ERROR HELPERS
+    # =========================
     def _is_existing_candidate_dialog(self) -> bool:
-        """Return True if the 'Submit Existing Candidate' dialog is currently visible."""
         try:
-            return bool(self.driver.execute_script(
-                """
+            return bool(self.page.evaluate("""() => {
                 function visible(el) {
                     if (!el) return false;
                     var s = window.getComputedStyle(el);
@@ -161,27 +94,20 @@ class SAPBot:
                     var r = el.getBoundingClientRect();
                     return r.width > 0 && r.height > 0;
                 }
-                var dialogs = Array.from(document.querySelectorAll(
-                    '.sapMDialog, [role="dialog"]'
-                )).filter(visible);
+                var dialogs = Array.from(document.querySelectorAll('.sapMDialog, [role="dialog"]')).filter(visible);
                 for (var d of dialogs) {
                     var t = (d.innerText || '').toLowerCase();
-                    if (t.indexOf('submit existing candidate') >= 0 ||
-                        t.indexOf('candidate already exists') >= 0) {
+                    if (t.indexOf('submit existing candidate') >= 0 || t.indexOf('candidate already exists') >= 0)
                         return true;
-                    }
                 }
                 return false;
-                """
-            ))
+            }"""))
         except Exception:
             return False
 
     def _extract_screen_error(self) -> str:
-        """Return the most relevant visible error/warning text shown on the SAP page."""
         try:
-            text = self.driver.execute_script(
-                """
+            text = self.page.evaluate("""() => {
                 function visible(el) {
                     if (!el) return false;
                     var s = window.getComputedStyle(el);
@@ -191,69 +117,43 @@ class SAPBot:
                 }
                 function clean(t) { return (t || '').replace(/\\s+/g, ' ').trim(); }
 
-                // 1. Toast notifications
                 var toasts = Array.from(document.querySelectorAll('.sapMMessageToast')).filter(visible);
                 if (toasts.length) return clean(toasts[0].innerText).slice(0, 400);
 
-                // 2. Message strip INSIDE an active dialog — target the text span directly
-                //    to avoid picking up icon labels, close buttons, or sibling form content.
                 var msgTextSelectors = [
                     '.sapMDialog .sapMMessageStripMessage',
                     '[role="dialog"] .sapMMessageStripMessage',
-                    '.sapMDialog [class*="MsgStripMessage"]',
-                    '[role="dialog"] [class*="MsgStripMessage"]',
                 ];
-                for (var msi = 0; msi < msgTextSelectors.length; msi++) {
-                    var msgEls = Array.from(document.querySelectorAll(msgTextSelectors[msi])).filter(visible);
-                    if (msgEls.length) {
-                        var t = clean(msgEls[0].innerText);
-                        if (t) return t.slice(0, 400);
-                    }
+                for (var sel of msgTextSelectors) {
+                    var els = Array.from(document.querySelectorAll(sel)).filter(visible);
+                    if (els.length) { var t = clean(els[0].innerText); if (t) return t.slice(0, 400); }
                 }
-                // Fallback: whole strip element (capped short to avoid form noise)
+
                 var dialogStrips = Array.from(document.querySelectorAll(
                     '.sapMDialog .sapMMessageStrip, [role="dialog"] .sapMMessageStrip'
                 )).filter(visible);
-                for (var ds of dialogStrips) {
-                    var t = clean(ds.innerText);
-                    if (t) return t.slice(0, 200);
-                }
+                for (var ds of dialogStrips) { var t = clean(ds.innerText); if (t) return t.slice(0, 200); }
 
-                // 3. Dialog title only (not full body — avoids form field noise)
                 var dialogs = Array.from(document.querySelectorAll('.sapMDialog, [role="alertdialog"]')).filter(visible);
                 for (var d of dialogs) {
-                    var titleEl = d.querySelector('.sapMDialogTitle, .sapMTitle, [class*="sapMDialogTitle"]');
+                    var titleEl = d.querySelector('.sapMDialogTitle, .sapMTitle');
                     var title = titleEl ? clean(titleEl.innerText) : '';
-                    // Only return dialog title for error/warning dialogs, not data-entry dialogs
                     var cls = d.className || '';
                     if (title && (cls.indexOf('Error') >= 0 || cls.indexOf('Warning') >= 0 ||
-                                  cls.indexOf('error') >= 0 || cls.indexOf('warning') >= 0)) {
+                                  cls.indexOf('error') >= 0 || cls.indexOf('warning') >= 0))
                         return title.slice(0, 400);
-                    }
-                    // Fallback: return first non-empty dialog innerText
                     var t = clean(d.innerText);
                     if (t) return t.slice(0, 400);
                 }
 
-                // 4. Standalone message strips (outside dialogs)
-                var strips = Array.from(document.querySelectorAll(
-                    '.sapMMessageStrip, [class*="sapMMessageStrip"]'
-                )).filter(visible);
-                for (var s of strips) {
-                    var t = clean(s.innerText);
-                    if (t) return t.slice(0, 400);
-                }
+                var strips = Array.from(document.querySelectorAll('.sapMMessageStrip, [class*="sapMMessageStrip"]')).filter(visible);
+                for (var s of strips) { var t = clean(s.innerText); if (t) return t.slice(0, 400); }
 
-                // 5. Generic ARIA alert regions
                 var alerts = Array.from(document.querySelectorAll('[role="alert"]')).filter(visible);
-                for (var a of alerts) {
-                    var t = clean(a.innerText);
-                    if (t) return t.slice(0, 400);
-                }
+                for (var a of alerts) { var t = clean(a.innerText); if (t) return t.slice(0, 400); }
 
                 return '';
-                """
-            )
+            }""")
             return str(text or "").strip()
         except Exception:
             return ""
@@ -261,13 +161,11 @@ class SAPBot:
     # =========================
     # INTERNAL HELPERS
     # =========================
-    def _fill(self, xpath, value):
-        el = self.wait.until(EC.presence_of_element_located((By.XPATH, xpath)))
-        self.driver.execute_script("arguments[0].click();", el)
-        self.driver.execute_script(
-            """
-            var el = arguments[0];
-            var val = arguments[1];
+    def _fill(self, xpath: str, value: str):
+        el = self.page.wait_for_selector(f"xpath={xpath}", timeout=20000)
+        el.scroll_into_view_if_needed()
+        el.click()
+        el.evaluate("""(el, val) => {
             var nativeInputValueSetter = Object.getOwnPropertyDescriptor(
                 window.HTMLInputElement.prototype, 'value'
             ).set;
@@ -275,21 +173,14 @@ class SAPBot:
             el.dispatchEvent(new Event('input', {bubbles: true}));
             el.dispatchEvent(new Event('change', {bubbles: true}));
             el.dispatchEvent(new KeyboardEvent('keyup', {bubbles: true}));
-            """,
-            el,
-            value,
-        )
-        time.sleep(0.2)
+        }""", value)
+        self.page.wait_for_timeout(200)
 
-    def _sap_select(self, control_id, value, by="key"):
-        match_expr = (
-            f"i.getKey() === '{value}'"
-            if by == "key"
-            else f"i.getText().trim() === '{value}' || i.getText().includes('{value}')"
-        )
-        select_stmt = f"c.setSelectedKey('{value}');" if by == "key" else "c.setSelectedItem(match);"
-        return self.driver.execute_script(
-            """
+    def _sap_select(self, control_id: str, value: str, by: str = "key"):
+        match_expr  = (f"i.getKey() === '{value}'" if by == "key"
+                       else f"i.getText().trim() === '{value}' || i.getText().includes('{value}')")
+        select_stmt = (f"c.setSelectedKey('{value}');" if by == "key" else "c.setSelectedItem(match);")
+        return self.page.evaluate(f"""() => {{
             try {{
                 var c = sap.ui.getCore().byId('{control_id}');
                 if (!c) return 'not_found';
@@ -299,55 +190,35 @@ class SAPBot:
                 c.fireChange({{selectedItem: c.getSelectedItem()}});
                 return 'ok:' + c.getSelectedItem().getText();
             }} catch(e) {{ return 'error:' + e.message; }}
-            """.format(control_id=control_id, match_expr=match_expr, select_stmt=select_stmt)
-        )
+        }}""")
 
-    def _action_click(self, element):
-        self.driver.execute_script("arguments[0].scrollIntoView({block:'center'});", element)
-        time.sleep(0.3)
-        ActionChains(self.driver).move_to_element(element).click().perform()
+    def _action_click(self, element: ElementHandle):
+        element.scroll_into_view_if_needed()
+        self.page.wait_for_timeout(300)
+        element.hover()
+        element.click()
 
-    def _visible_element_for_screenshot(self):
-        selectors = [
-            ".sapMDialog[role='dialog']",
-            ".sapMDialog",
-            "[role='dialog']",
-            ".sapMShell",
-            ".sapMPage",
-            "body",
-        ]
-        for selector in selectors:
-            try:
-                elements = self.driver.find_elements(By.CSS_SELECTOR, selector)
-            except Exception:
-                continue
-            for element in reversed(elements):
-                try:
-                    if element.is_displayed() and element.size.get("width", 0) > 0 and element.size.get("height", 0) > 0:
-                        return element
-                except Exception:
-                    continue
-        return None
-
-    def _screenshot(self, name):
+    def _screenshot(self, name: str) -> Path:
         self.screenshot_dir.mkdir(parents=True, exist_ok=True)
         self.screenshot_counter += 1
         path = self.screenshot_dir / f"{self.screenshot_counter:02d}_{name}.png"
-        element = self._visible_element_for_screenshot()
-        if element is not None:
+        try:
+            dialog = self.page.query_selector(".sapMDialog[role='dialog'], .sapMDialog, [role='dialog']")
+            if dialog and dialog.is_visible():
+                dialog.screenshot(path=str(path))
+            else:
+                self.page.screenshot(path=str(path))
+        except Exception:
             try:
-                element.screenshot(str(path))
+                self.page.screenshot(path=str(path))
             except Exception:
-                self.driver.save_screenshot(str(path))
-        else:
-            self.driver.save_screenshot(str(path))
+                pass
         print(f"Screenshot saved: {path}")
         return path
 
     def _details_panel_state(self, req_id=None):
-        return self.driver.execute_script(
-            """
-            var wanted = arguments[0] ? String(arguments[0]).replace(/\\s+/g, '').toLowerCase() : null;
+        return self.page.evaluate("""(wanted) => {
+            var w = wanted ? String(wanted).replace(/\\s+/g, '').toLowerCase() : null;
             function visible(el) {
                 if (!el) return false;
                 var style = window.getComputedStyle(el);
@@ -364,22 +235,18 @@ class SAPBot:
                 if (!text || text.length < 8) continue;
                 if (text.toLowerCase().includes('requisition id')) {
                     var normalized = text.replace(/\\s+/g, '').toLowerCase();
-                    if (wanted && normalized.includes(wanted)) {
-                        return {matched: true, snippet: text.slice(0, 250)};
-                    }
+                    if (w && normalized.includes(w)) return {matched: true, snippet: text.slice(0, 250)};
                     snippets.push(text.slice(0, 250));
                 }
             }
             return {matched: false, snippet: snippets[0] || ''};
-            """,
-            req_id,
-        )
+        }""", req_id)
 
     def _wait_for_details_panel(self, req_id, timeout=15):
-        end = time.time() + timeout
+        end         = time.time() + timeout
         last_snippet = ""
         while time.time() < end:
-            state = self._details_panel_state(req_id)
+            state        = self._details_panel_state(req_id)
             last_snippet = state.get("snippet", "")
             if state.get("matched"):
                 return True, last_snippet
@@ -387,8 +254,7 @@ class SAPBot:
         return False, last_snippet
 
     def _extract_job_panel_details(self):
-        return self.driver.execute_script(
-            """
+        return self.page.evaluate("""() => {
             function visible(el) {
                 if (!el) return false;
                 var style = window.getComputedStyle(el);
@@ -396,82 +262,41 @@ class SAPBot:
                 var rect = el.getBoundingClientRect();
                 return rect.width > 0 && rect.height > 0;
             }
-            function clean(text) {
-                return (text || '').replace(/\\s+/g, ' ').trim();
-            }
+            function clean(text) { return (text || '').replace(/\\s+/g, ' ').trim(); }
             function normalizeBlock(text) {
-                return String(text || '')
-                    .replace(/\\r/g, '')
-                    .replace(/[ \\t]+\\n/g, '\\n')
-                    .replace(/\\n[ \\t]+/g, '\\n')
-                    .trim();
+                return String(text || '').replace(/\\r/g,'').replace(/[ \\t]+\\n/g,'\\n').replace(/\\n[ \\t]+/g,'\\n').trim();
             }
             function sanitizePerson(text) {
                 return clean(text)
-                    .replace(/^(recruiter|client recruiter|agency contact)\\s*:?/i, '')
-                    .replace(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\\.[A-Z]{2,}/ig, ' ')
-                    .replace(/\\s*copyright.*$/i, '')
-                    .replace(/\\s*job details.*$/i, '')
-                    .replace(/[\\uE000-\\uF8FF]+/g, '')
-                    .replace(/[^A-Za-z0-9@._+\\-\\s]/g, ' ')
-                    .replace(/\\s+/g, ' ')
-                    .trim();
+                    .replace(/^(recruiter|client recruiter|agency contact)\\s*:?/i,'')
+                    .replace(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\\.[A-Z]{2,}/ig,' ')
+                    .replace(/\\s*copyright.*$/i,'').replace(/\\s*job details.*$/i,'')
+                    .replace(/[\\uE000-\\uF8FF]+/g,'').replace(/[^A-Za-z0-9@._+\\-\\s]/g,' ')
+                    .replace(/\\s+/g,' ').trim();
             }
             function nextValue(lines, index) {
                 for (var j = index + 1; j < lines.length; j++) {
                     var candidate = clean(lines[j]);
                     if (!candidate) continue;
-                    if (/^(Requisition ID|Posting Start Date|Posting End Date|Recruiter|Client Recruiter|Agency Contact|Job Details)$/i.test(candidate)) {
-                        continue;
-                    }
+                    if (/^(Requisition ID|Posting Start Date|Posting End Date|Recruiter|Client Recruiter|Agency Contact|Job Details)$/i.test(candidate)) continue;
                     return candidate;
-                }
-                return '';
-            }
-            function extractByLabel(lines, labels) {
-                for (var i = 0; i < lines.length; i++) {
-                    var line = lines[i];
-                    for (var j = 0; j < labels.length; j++) {
-                        var label = labels[j];
-                        if (new RegExp('^' + label + '$', 'i').test(line)) {
-                            return nextValue(lines, i);
-                        }
-                        var inlineMatch = line.match(new RegExp('^' + label + '\\s*:?\\s*(.+)$', 'i'));
-                        if (inlineMatch) return clean(inlineMatch[1]);
-                    }
                 }
                 return '';
             }
             function parseSummaryText(text) {
                 var raw = normalizeBlock(text);
-                var lines = raw
-                    .split(/\\n+/)
-                    .map(clean)
-                    .filter(Boolean);
-                var flattened = clean(raw.replace(/\\n+/g, ' '));
-                var data = {
-                    title: '',
-                    requisition_id: '',
-                    posting_start_date: '',
-                    posting_end_date: '',
-                    recruiter_name: '',
-                    recruiter_email: ''
-                };
-                data.title = lines.find(function (line) {
+                var lines = raw.split(/\\n+/).map(clean).filter(Boolean);
+                var flattened = clean(raw.replace(/\\n+/g,' '));
+                var data = {title:'',requisition_id:'',posting_start_date:'',posting_end_date:'',recruiter_name:'',recruiter_email:''};
+                data.title = lines.find(function(line){
                     return !/^(Requisition ID|Posting Start Date|Posting End Date|Recruiter|Client Recruiter|Agency Contact|Job Details)$/i.test(line);
                 }) || '';
                 for (var i = 0; i < lines.length; i++) {
                     var line = lines[i];
                     var reqMatch = line.match(/^Requisition ID\\s*:?\\s*(.+)$/i);
-                    var startMatch = line.match(/^Posting Start Date\\s*:?\\s*(.+)$/i);
-                    var endMatch = line.match(/^Posting End Date\\s*:?\\s*(.+)$/i);
                     var recruiterMatch = line.match(/^(Recruiter|Client Recruiter|Agency Contact)\\s*:?\\s*(.+)$/i);
                     if (/^Requisition ID$/i.test(line)) data.requisition_id = nextValue(lines, i) || data.requisition_id;
                     else if (reqMatch) data.requisition_id = clean(reqMatch[1]) || data.requisition_id;
-                    if (/^Posting Start Date$/i.test(line)) data.posting_start_date = nextValue(lines, i) || data.posting_start_date;
-                    else if (startMatch) data.posting_start_date = clean(startMatch[1]) || data.posting_start_date;
-                    if (/^Posting End Date$/i.test(line)) data.posting_end_date = nextValue(lines, i) || data.posting_end_date;
-                    else if (endMatch) data.posting_end_date = clean(endMatch[1]) || data.posting_end_date;
                     if (/^(Recruiter|Client Recruiter|Agency Contact)$/i.test(line)) {
                         data.recruiter_name = sanitizePerson(nextValue(lines, i) || data.recruiter_name);
                     } else if (recruiterMatch) {
@@ -481,208 +306,45 @@ class SAPBot:
                     if (emailMatch && !data.recruiter_email) data.recruiter_email = emailMatch[0];
                 }
                 if (!data.recruiter_name) {
-                    var recruiterInline = raw.match(/(?:Recruiter|Client Recruiter|Agency Contact)\\s*:?\\s*([^\\n]+)/i);
-                    if (recruiterInline) data.recruiter_name = sanitizePerson(recruiterInline[1]);
-                }
-                if (!data.recruiter_name && flattened) {
-                    var flatRecruiter = flattened.match(/(?:Recruiter|Client Recruiter|Agency Contact)\\s*:?\\s*([A-Za-z][A-Za-z .,'()&-]{1,80})/i);
-                    if (flatRecruiter) data.recruiter_name = sanitizePerson(flatRecruiter[1]);
+                    var ri = raw.match(/(?:Recruiter|Client Recruiter|Agency Contact)\\s*:?\\s*([^\\n]+)/i);
+                    if (ri) data.recruiter_name = sanitizePerson(ri[1]);
                 }
                 if (!data.title && flattened) {
-                    var titleMatch = flattened.match(/^(.*?)\\s+Requisition ID\\b/i);
-                    if (titleMatch) data.title = clean(titleMatch[1]);
+                    var tm = flattened.match(/^(.*?)\\s+Requisition ID\\b/i);
+                    if (tm) data.title = clean(tm[1]);
                 }
                 return data;
             }
-            function summarizeCandidate(el) {
+            function summarize(el) {
                 var rect = el.getBoundingClientRect();
                 var rawText = normalizeBlock(el.innerText);
-                var text = clean(rawText);
-                return {
-                    el: el,
-                    text: text,
-                    rawText: rawText,
-                    top: rect.top,
-                    left: rect.left,
-                    width: rect.width,
-                    height: rect.height,
-                    area: rect.width * rect.height
-                };
+                return {el:el, text:clean(rawText), rawText:rawText, top:rect.top, left:rect.left, area:rect.width*rect.height};
             }
-
             var candidates = Array.from(document.querySelectorAll('section, div'))
-                .filter(visible)
-                .filter(function (el) { return !el.closest('li.sapMLIB'); })
-                .map(summarizeCandidate)
-                .filter(function (item) {
-                    return item.text &&
-                        item.text.indexOf('JOB DETAILS') >= 0 &&
-                        item.text.indexOf('Requisition ID') >= 0 &&
-                        item.text.indexOf('Recruiter') >= 0;
-                })
-                .sort(function (a, b) {
-                    var aRightPane = a.left > 250 ? 0 : 1;
-                    var bRightPane = b.left > 250 ? 0 : 1;
-                    if (aRightPane !== bRightPane) return aRightPane - bRightPane;
+                .filter(visible).filter(el => !el.closest('li.sapMLIB')).map(summarize)
+                .filter(item => item.text && item.text.indexOf('JOB DETAILS') >= 0
+                    && item.text.indexOf('Requisition ID') >= 0 && item.text.indexOf('Recruiter') >= 0)
+                .sort(function(a,b){
+                    var ar = a.left > 250 ? 0 : 1, br = b.left > 250 ? 0 : 1;
+                    if (ar !== br) return ar - br;
                     if (a.area !== b.area) return a.area - b.area;
-                    if (a.top !== b.top) return a.top - b.top;
-                    return a.left - b.left;
+                    return a.top - b.top;
                 });
-
             var panelText = candidates.length ? candidates[0].rawText : '';
             var summaryText = panelText ? panelText.split(/JOB DETAILS/i)[0] : '';
             var parsed = parseSummaryText(summaryText);
             var summaryLines = summaryText.split(/\\n+/).map(clean).filter(Boolean);
-
             if (summaryLines.length) {
-                var summaryTitle = summaryLines[0];
-                if (summaryTitle && !/agency access/i.test(summaryTitle)) {
-                    parsed.title = summaryTitle;
-                }
-                if (!parsed.requisition_id) parsed.requisition_id = extractByLabel(summaryLines, ['Requisition ID']);
-                if (!parsed.posting_start_date) parsed.posting_start_date = extractByLabel(summaryLines, ['Posting Start Date']);
-                if (!parsed.posting_end_date) parsed.posting_end_date = extractByLabel(summaryLines, ['Posting End Date']);
-                if (!parsed.recruiter_name) parsed.recruiter_name = sanitizePerson(extractByLabel(summaryLines, ['Recruiter', 'Client Recruiter', 'Agency Contact']));
+                var st = summaryLines[0];
+                if (st && !/agency access/i.test(st)) parsed.title = st;
             }
-
-            return {
-                title: parsed.title,
-                recruiter_name: parsed.recruiter_name,
-                recruiter_email: parsed.recruiter_email
-            };
-            """
-        )
-
-    def _extract_recruiter_from_panel_text(self):
-        return self.driver.execute_script(
-            """
-            function visible(el) {
-                if (!el) return false;
-                var style = window.getComputedStyle(el);
-                if (style.display === 'none' || style.visibility === 'hidden') return false;
-                var rect = el.getBoundingClientRect();
-                return rect.width > 0 && rect.height > 0;
-            }
-            function clean(text) {
-                return (text || '').replace(/\\s+/g, ' ').trim();
-            }
-            function normalizeBlock(text) {
-                return String(text || '')
-                    .replace(/\\r/g, '')
-                    .replace(/[ \\t]+\\n/g, '\\n')
-                    .replace(/\\n[ \\t]+/g, '\\n')
-                    .trim();
-            }
-            function sanitizePerson(text) {
-                return clean(text)
-                    .replace(/^(recruiter|client recruiter|agency contact)\\s*:?/i, '')
-                    .replace(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\\.[A-Z]{2,}/ig, ' ')
-                    .replace(/\\s*copyright.*$/i, '')
-                    .replace(/\\s*job details.*$/i, '')
-                    .replace(/[\\uE000-\\uF8FF]+/g, '')
-                    .replace(/[^A-Za-z0-9@._+\\-\\s]/g, ' ')
-                    .replace(/\\s+/g, ' ')
-                    .trim();
-            }
-            function nextValue(lines, index) {
-                for (var j = index + 1; j < lines.length; j++) {
-                    var candidate = clean(lines[j]);
-                    if (!candidate) continue;
-                    if (/^(Requisition ID|Posting Start Date|Posting End Date|Recruiter|Client Recruiter|Agency Contact|Job Details)$/i.test(candidate)) {
-                        continue;
-                    }
-                    return candidate;
-                }
-                return '';
-            }
-            function summarizeCandidate(el) {
-                var rect = el.getBoundingClientRect();
-                var rawText = normalizeBlock(el.innerText);
-                var text = clean(rawText);
-                return {
-                    text: text,
-                    rawText: rawText,
-                    top: rect.top,
-                    left: rect.left,
-                    area: rect.width * rect.height
-                };
-            }
-            function parseSummaryText(text) {
-                var raw = normalizeBlock(text);
-                var lines = raw
-                    .split(/\\n+/)
-                    .map(clean)
-                    .filter(Boolean);
-                var flattened = clean(raw.replace(/\\n+/g, ' '));
-                var title = lines.find(function (line) {
-                    return !/^(Requisition ID|Posting Start Date|Posting End Date|Recruiter|Client Recruiter|Agency Contact|Job Details)$/i.test(line);
-                }) || '';
-                var recruiterName = '';
-                var recruiterEmail = '';
-                for (var i = 0; i < lines.length; i++) {
-                    var line = lines[i];
-                    var recruiterMatch = line.match(/^(Recruiter|Client Recruiter|Agency Contact)\\s*:?\\s*(.+)$/i);
-                    if (/^(Recruiter|Client Recruiter|Agency Contact)$/i.test(line)) {
-                        recruiterName = sanitizePerson(nextValue(lines, i) || '');
-                    } else if (recruiterMatch) {
-                        recruiterName = sanitizePerson(recruiterMatch[2] || '');
-                    }
-                    var emailMatch = line.match(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\\.[A-Z]{2,}/i);
-                    if (emailMatch && !recruiterEmail) recruiterEmail = emailMatch[0];
-                }
-                if (!recruiterName) {
-                    var recruiterInline = raw.match(/(?:Recruiter|Client Recruiter|Agency Contact)\\s*:?\\s*([^\\n]+)/i);
-                    if (recruiterInline) recruiterName = sanitizePerson(recruiterInline[1]);
-                }
-                if (!recruiterName && flattened) {
-                    var flatRecruiter = flattened.match(/(?:Recruiter|Client Recruiter|Agency Contact)\\s*:?\\s*([A-Za-z][A-Za-z .,'()&-]{1,80})/i);
-                    if (flatRecruiter) recruiterName = sanitizePerson(flatRecruiter[1]);
-                }
-                if (!title && flattened) {
-                    var titleMatch = flattened.match(/^(.*?)\\s+Requisition ID\\b/i);
-                    if (titleMatch) title = clean(titleMatch[1]);
-                }
-                return {title: title, recruiter_name: recruiterName, recruiter_email: recruiterEmail};
-            }
-
-            var candidates = Array.from(document.querySelectorAll('section, div'))
-                .filter(visible)
-                .filter(function (el) { return !el.closest('li.sapMLIB'); })
-                .map(summarizeCandidate)
-                .filter(function (item) {
-                    return item.text &&
-                        item.text.indexOf('JOB DETAILS') >= 0 &&
-                        item.text.indexOf('Requisition ID') >= 0 &&
-                        item.text.indexOf('Recruiter') >= 0;
-                })
-                .sort(function (a, b) {
-                    var aRightPane = a.left > 250 ? 0 : 1;
-                    var bRightPane = b.left > 250 ? 0 : 1;
-                    if (aRightPane !== bRightPane) return aRightPane - bRightPane;
-                    if (a.area !== b.area) return a.area - b.area;
-                    if (a.top !== b.top) return a.top - b.top;
-                    return a.left - b.left;
-                });
-
-            var bestText = candidates.length ? candidates[0].rawText.split(/JOB DETAILS/i)[0] : '';
-            var parsed = parseSummaryText(bestText);
-
-            return {
-                text: bestText,
-                title: parsed.title,
-                recruiter_name: parsed.recruiter_name,
-                recruiter_email: parsed.recruiter_email
-            };
-            """
-        )
+            return {title: parsed.title, recruiter_name: parsed.recruiter_name, recruiter_email: parsed.recruiter_email};
+        }""")
 
     def _extract_recruiter_from_sap_controls(self):
-        return self.driver.execute_script(
-            """
+        return self.page.evaluate("""() => {
             try {
-                function clean(text) {
-                    return (text || '').replace(/\\s+/g, ' ').trim();
-                }
+                function clean(text) { return (text || '').replace(/\\s+/g,' ').trim(); }
                 function visibleDom(dom) {
                     if (!dom) return false;
                     var style = window.getComputedStyle(dom);
@@ -690,92 +352,57 @@ class SAPBot:
                     var rect = dom.getBoundingClientRect();
                     return rect.width > 0 && rect.height > 0;
                 }
-                var entries = [];
-                var recruiterName = '';
-                var recruiterEmail = '';
+                var recruiterName = '', recruiterEmail = '';
                 var elements = Object.values((window.sap && sap.ui && sap.ui.getCore && sap.ui.getCore().mElements) || {});
-
                 for (var i = 0; i < elements.length; i++) {
                     var ctrl = elements[i];
                     if (!ctrl || !ctrl.getMetadata) continue;
                     var dom = ctrl.getDomRef ? ctrl.getDomRef() : null;
                     if (!visibleDom(dom)) continue;
                     if (dom && dom.closest && dom.closest('li.sapMLIB')) continue;
-
                     var value = '';
-                    if (!value && ctrl.getText) value = ctrl.getText();
+                    if (!value && ctrl.getText)  value = ctrl.getText();
                     if (!value && ctrl.getTitle) value = ctrl.getTitle();
                     if (!value && ctrl.getValue) value = ctrl.getValue();
                     if (!value && dom) value = dom.innerText || dom.textContent || '';
                     value = clean(value);
                     if (!value) continue;
-
-                    entries.push({
-                        id: ctrl.getId ? ctrl.getId() : '',
-                        type: ctrl.getMetadata().getName(),
-                        text: value
-                    });
-
                     if (!recruiterName && /recruiter|client recruiter|agency contact/i.test(value) && value.length < 200) {
-                        var nameMatch = value.match(/(?:Recruiter|Client Recruiter|Agency Contact)\\s*:?\\s*(.+)$/i);
-                        if (nameMatch) recruiterName = clean(nameMatch[1]);
+                        var nm = value.match(/(?:Recruiter|Client Recruiter|Agency Contact)\\s*:?\\s*(.+)$/i);
+                        if (nm) recruiterName = clean(nm[1]);
                     }
                     if (!recruiterEmail) {
-                        var emailMatch = value.match(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\\.[A-Z]{2,}/i);
-                        if (emailMatch) recruiterEmail = emailMatch[0];
+                        var em = value.match(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\\.[A-Z]{2,}/i);
+                        if (em) recruiterEmail = em[0];
                     }
                 }
-
-                return {
-                    recruiter_name: recruiterName,
-                    recruiter_email: recruiterEmail,
-                    entries: entries.slice(0, 80)
-                };
+                return {recruiter_name: recruiterName, recruiter_email: recruiterEmail};
             } catch (e) {
-                return {recruiter_name: '', recruiter_email: '', entries: [], error: e.message};
+                return {recruiter_name: '', recruiter_email: '', error: e.message};
             }
-            """
-        )
+        }""")
 
     def _wait_for_recruiter_details(self, timeout=8):
-        end = time.time() + timeout
-        latest = {
-            "panel": {"title": "", "recruiter_name": "", "recruiter_email": "", "text": ""},
-            "sap": {"recruiter_name": "", "recruiter_email": "", "entries": []},
-        }
+        end    = time.time() + timeout
+        latest = {"panel": {}, "sap": {}}
         while time.time() < end:
-            try:
-                panel = self._extract_recruiter_from_panel_text()
-            except Exception:
-                panel = {"title": "", "recruiter_name": "", "recruiter_email": "", "text": ""}
-            try:
-                sap = self._extract_recruiter_from_sap_controls()
-            except Exception:
-                sap = {"recruiter_name": "", "recruiter_email": "", "entries": []}
-
+            try:    panel = self._extract_job_panel_details()
+            except: panel = {}
+            try:    sap = self._extract_recruiter_from_sap_controls()
+            except: sap = {}
             latest = {"panel": panel, "sap": sap}
-            if (
-                panel.get("recruiter_name")
-                or panel.get("recruiter_email")
-                or sap.get("recruiter_name")
-                or sap.get("recruiter_email")
-            ):
+            if (panel.get("recruiter_name") or panel.get("recruiter_email")
+                    or sap.get("recruiter_name") or sap.get("recruiter_email")):
                 return latest
-
             try:
-                self.driver.execute_script("window.scrollBy(0, 250);")
+                self.page.evaluate("() => window.scrollBy(0, 250)")
             except Exception:
                 pass
             time.sleep(0.7)
         return latest
 
     def _open_recruiter_contact_card(self, recruiter_name):
-        """
-        Finds the quickViewDetails icon next to the recruiter name and fires
-        the SAP press event. Works reliably in headless mode.
-        """
-        result = self.driver.execute_script(
-            """
+        result = self.page.evaluate("""() => {
             try {
                 function visible(el) {
                     if (!el) return false;
@@ -784,38 +411,27 @@ class SAPBot:
                     var rect = el.getBoundingClientRect();
                     return rect.width > 0 && rect.height > 0;
                 }
-
-                // Strategy 1: Find by data-sap-ui attribute containing 'quickViewDetails'
                 var icons = Array.from(document.querySelectorAll(
                     '[data-sap-ui*="quickViewDetails"], [id*="quickViewDetails"]'
                 )).filter(visible);
-
                 for (var i = 0; i < icons.length; i++) {
-                    var icon = icons[i];
-                    var iconId = icon.id || icon.getAttribute('data-sap-ui') || '';
-
-                    // Walk up to find a clickable SAP control parent
-                    var node = icon;
+                    var icon = icons[i]; var node = icon;
                     while (node) {
                         if (node.id && window.sap && sap.ui && sap.ui.getCore) {
                             var ctrl = sap.ui.getCore().byId(node.id);
                             if (ctrl) {
-                                if (ctrl.firePress) { ctrl.firePress(); return {ok: true, method: 'firePress', id: node.id}; }
-                                if (ctrl.ontap)    { ctrl.ontap({srcControl: ctrl, setMarked: function(){}, preventDefault: function(){}, stopPropagation: function(){}, isMarked: function(){ return false; }, target: node}); return {ok: true, method: 'ontap', id: node.id}; }
+                                if (ctrl.firePress) { ctrl.firePress(); return {ok:true,method:'firePress',id:node.id}; }
+                                if (ctrl.ontap) { ctrl.ontap({srcControl:ctrl,setMarked:function(){},preventDefault:function(){},stopPropagation:function(){},isMarked:function(){return false;},target:node}); return {ok:true,method:'ontap',id:node.id}; }
                             }
                         }
                         node = node.parentElement;
                     }
-
-                    // Fallback: dispatch real mouse events on the icon element
-                    icon.scrollIntoView({block: 'center'});
-                    ['mouseenter','mouseover','mousedown','mouseup','click'].forEach(function(evt) {
-                        icon.dispatchEvent(new MouseEvent(evt, {bubbles: true, cancelable: true, view: window}));
+                    icon.scrollIntoView({block:'center'});
+                    ['mouseenter','mouseover','mousedown','mouseup','click'].forEach(function(evt){
+                        icon.dispatchEvent(new MouseEvent(evt,{bubbles:true,cancelable:true,view:window}));
                     });
-                    return {ok: true, method: 'mouse_events', id: iconId};
+                    return {ok:true,method:'mouse_events'};
                 }
-
-                // Strategy 2: Find SAP controls whose ID ends with quickViewDetails
                 if (window.sap && sap.ui && sap.ui.getCore) {
                     var elements = Object.values(sap.ui.getCore().mElements || {});
                     for (var j = 0; j < elements.length; j++) {
@@ -825,86 +441,66 @@ class SAPBot:
                         if (cid.indexOf('quickViewDetails') < 0 && cid.indexOf('quickview') < 0) continue;
                         var dom = c.getDomRef ? c.getDomRef() : null;
                         if (!visible(dom)) continue;
-                        if (c.firePress) { c.firePress(); return {ok: true, method: 'sap_core_firePress', id: cid}; }
+                        if (c.firePress) { c.firePress(); return {ok:true,method:'sap_core_firePress',id:cid}; }
                         if (dom) {
-                            dom.scrollIntoView({block: 'center'});
-                            ['mousedown','mouseup','click'].forEach(function(evt) {
-                                dom.dispatchEvent(new MouseEvent(evt, {bubbles: true, cancelable: true, view: window}));
+                            dom.scrollIntoView({block:'center'});
+                            ['mousedown','mouseup','click'].forEach(function(evt){
+                                dom.dispatchEvent(new MouseEvent(evt,{bubbles:true,cancelable:true,view:window}));
                             });
-                            return {ok: true, method: 'sap_core_dom_click', id: cid};
+                            return {ok:true,method:'sap_core_dom_click',id:cid};
                         }
                     }
                 }
-
-                return {ok: false, reason: 'quickViewDetails_not_found'};
-            } catch(e) {
-                return {ok: false, reason: e.message};
-            }
-            """,
-        )
+                return {ok:false,reason:'quickViewDetails_not_found'};
+            } catch(e) { return {ok:false,reason:e.message}; }
+        }""")
         print(f"Contact card open result: {result}")
         self._screenshot("02a_before_contact_wait")
 
-        # Wait up to 3s for the popover to appear
         for _ in range(6):
-            popovers = self.driver.find_elements(
-                By.XPATH,
-                "//div[contains(@class,'sapMPopover') or contains(@class,'sapMQuickView')][not(contains(@style,'display: none'))]",
+            popovers = self.page.query_selector_all(
+                ".sapMPopover:not([style*='display: none']), .sapMQuickView:not([style*='display: none'])"
             )
-            if any(p.is_displayed() for p in popovers):
+            if any(p.is_visible() for p in popovers):
                 self._screenshot("02a_contact_popover_opened")
                 return True
             time.sleep(0.5)
 
-        # If popover didn't open, try ActionChains on the DOM element directly
-        icons = self.driver.find_elements(
-            By.CSS_SELECTOR, "[data-sap-ui*='quickViewDetails'], [id*='quickViewDetails']"
-        )
+        # Fallback: direct Playwright hover+click
+        icons = self.page.query_selector_all("[data-sap-ui*='quickViewDetails'], [id*='quickViewDetails']")
         for icon in icons:
             try:
-                self.driver.execute_script("arguments[0].scrollIntoView({block:'center'});", icon)
-                time.sleep(0.3)
-                ActionChains(self.driver).move_to_element(icon).pause(0.15).click().perform()
-                time.sleep(1.0)
-                popovers = self.driver.find_elements(
-                    By.XPATH,
-                    "//div[contains(@class,'sapMPopover') or contains(@class,'sapMQuickView')]",
-                )
-                if any(p.is_displayed() for p in popovers):
+                icon.scroll_into_view_if_needed()
+                self.page.wait_for_timeout(300)
+                icon.hover()
+                self.page.wait_for_timeout(150)
+                icon.click()
+                self.page.wait_for_timeout(1000)
+                popovers = self.page.query_selector_all(".sapMPopover, .sapMQuickView")
+                if any(p.is_visible() for p in popovers):
                     self._screenshot("02a_contact_popover_opened")
                     return True
             except Exception:
                 continue
-
         return False
 
     def _extract_contact_from_popover(self):
-        """
-        Grab the visible popover/QuickView text and parse name + email in Python.
-        Avoids complex inline JS that can hit 'Invalid or unexpected token'.
-        """
-        # Give the popover a moment to fully render
-        time.sleep(0.4)
-
-        # Get raw text from the popover via a minimal JS call
+        self.page.wait_for_timeout(400)
         try:
-            raw = self.driver.execute_script(
-                """
-                var selectors = ['.sapMPopover', '.sapMQuickView', '.sapMPopup', '[role="dialog"]'];
+            raw = self.page.evaluate("""() => {
+                var selectors = ['.sapMPopover','.sapMQuickView','.sapMPopup','[role="dialog"]'];
                 for (var i = 0; i < selectors.length; i++) {
                     var els = Array.from(document.querySelectorAll(selectors[i]));
                     for (var j = 0; j < els.length; j++) {
                         var el = els[j];
                         var style = window.getComputedStyle(el);
-                        var rect = el.getBoundingClientRect();
-                        if (style.display !== 'none' && rect.width > 0 && rect.height > 0) {
+                        var rect  = el.getBoundingClientRect();
+                        if (style.display !== 'none' && rect.width > 0 && rect.height > 0)
                             return el.innerText || '';
-                        }
                     }
                 }
                 return '';
-                """
-            )
+            }""")
         except Exception as e:
             print(f"Popover text extraction error: {e}")
             return {"name": "", "email": "", "text": ""}
@@ -912,44 +508,35 @@ class SAPBot:
         if not raw:
             return {"name": "", "email": "", "text": ""}
 
-        # Parse in Python — no JS regex escaping issues
-        import re
-
         lines = [ln.strip() for ln in raw.splitlines() if ln.strip()]
         print(f"Popover lines: {lines}")
-
         email = ""
-        name = ""
+        name  = ""
 
         for i, line in enumerate(lines):
-            # Email — grab the value on the line after "Email Address" label
             if re.match(r"^email\s*address\s*:?\s*$", line, re.IGNORECASE):
                 for j in range(i + 1, len(lines)):
-                    candidate = lines[j]
-                    m = re.search(r"[A-Z0-9._%+\-]+@[A-Z0-9.\-]+\.[A-Z]{2,}", candidate, re.IGNORECASE)
+                    m = re.search(r"[A-Z0-9._%+\-]+@[A-Z0-9.\-]+\.[A-Z]{2,}", lines[j], re.IGNORECASE)
                     if m:
                         email = m.group(0)
                         break
-            # Inline "Email Address: foo@bar.com"
             m_inline = re.match(r"^email\s*address\s*:?\s*(.+)$", line, re.IGNORECASE)
             if m_inline:
                 m2 = re.search(r"[A-Z0-9._%+\-]+@[A-Z0-9.\-]+\.[A-Z]{2,}", m_inline.group(1), re.IGNORECASE)
                 if m2 and not email:
                     email = m2.group(0)
-            # Bare email anywhere in a line
             if not email:
                 m3 = re.search(r"[A-Z0-9._%+\-]+@[A-Z0-9.\-]+\.[A-Z]{2,}", line, re.IGNORECASE)
                 if m3:
                     email = m3.group(0)
 
-        # Name = first non-header, non-label, non-email line
-        skip_patterns = re.compile(
+        skip = re.compile(
             r"^(contact\s*card|employee\s*details|business\s*card|email|mobile|phone|"
             r"address|recruiter|agency|[A-Z0-9._%+\-]+@[A-Z0-9.\-]+)",
             re.IGNORECASE,
         )
         for line in lines:
-            if skip_patterns.match(line):
+            if skip.match(line):
                 continue
             if len(line) > 2:
                 name = line
@@ -962,125 +549,85 @@ class SAPBot:
         if not self.find_and_open_job(req_id):
             raise Exception(f"Requisition ID {req_id} not found in job list")
 
-        try:
-            details = self._extract_job_panel_details()
-        except Exception as e:
-            print(f"[WARN] _extract_job_panel_details failed: {e}")
-            details = {}
+        try:    details = self._extract_job_panel_details()
+        except: details = {}
 
-        try:
-            recruiter_sources = self._wait_for_recruiter_details(timeout=8)
-        except Exception as e:
-            print(f"[WARN] _wait_for_recruiter_details failed: {e}")
-            recruiter_sources = {"panel": {}, "sap": {}}
+        try:    recruiter_sources = self._wait_for_recruiter_details(timeout=8)
+        except: recruiter_sources = {"panel": {}, "sap": {}}
 
-        panel_fallback = recruiter_sources.get("panel") or {}
-        sap_fallback = recruiter_sources.get("sap") or {}
+        panel_fb = recruiter_sources.get("panel") or {}
+        sap_fb   = recruiter_sources.get("sap") or {}
 
         recruiter_name = (
-                (details.get("recruiter_name") or "").strip()
-                or (panel_fallback.get("recruiter_name") or "").strip()
-                or (sap_fallback.get("recruiter_name") or "").strip()
+            (details.get("recruiter_name") or "").strip()
+            or (panel_fb.get("recruiter_name") or "").strip()
+            or (sap_fb.get("recruiter_name") or "").strip()
         )
 
-        contact = {"name": "", "email": ""}
+        contact        = {"name": "", "email": ""}
         contact_opened = False
 
         for attempt in range(2):
-            try:
-                contact_opened = self._open_recruiter_contact_card(recruiter_name) or contact_opened
+            try:   contact_opened = self._open_recruiter_contact_card(recruiter_name) or contact_opened
+            except Exception as e: print(f"[WARN] contact card attempt {attempt+1}: {e}")
+            try:   contact = self._extract_contact_from_popover()
             except Exception as e:
-                print(f"[WARN] _open_recruiter_contact_card attempt {attempt + 1} failed: {e}")
-
-            try:
-                contact = self._extract_contact_from_popover()
-            except Exception as e:
-                print(f"[WARN] _extract_contact_from_popover attempt {attempt + 1} failed: {e}")
+                print(f"[WARN] popover extraction attempt {attempt+1}: {e}")
                 contact = {"name": "", "email": ""}
-
             if contact.get("email"):
                 break
             time.sleep(0.5)
 
         final_name = (
-                (contact.get("name") or "").strip()
-                or recruiter_name
-                or (details.get("recruiter_name") or "").strip()
-                or (panel_fallback.get("recruiter_name") or "").strip()
-                or (sap_fallback.get("recruiter_name") or "").strip()
+            (contact.get("name") or "").strip()
+            or recruiter_name
+            or (details.get("recruiter_name") or "").strip()
         )
-
         final_email = (
-                (contact.get("email") or "").strip()
-                or (details.get("recruiter_email") or "").strip()
-                or (panel_fallback.get("recruiter_email") or "").strip()
-                or (sap_fallback.get("recruiter_email") or "").strip()
-        )
-
-        print(
-            "Recruiter extraction:",
-            {
-                "details": details,
-                "panel": panel_fallback,
-                "sap_name": sap_fallback.get("recruiter_name", ""),
-                "sap_email": sap_fallback.get("recruiter_email", ""),
-                "contact": contact,
-                "final_name": final_name,
-                "final_email": final_email,
-            },
+            (contact.get("email") or "").strip()
+            or (details.get("recruiter_email") or "").strip()
+            or (panel_fb.get("recruiter_email") or "").strip()
+            or (sap_fb.get("recruiter_email") or "").strip()
         )
         self._screenshot("02a_recruiter_contact_details")
-
         return {
             "jr_number": req_id,
-            "job_title": (details.get("title") or "").strip() or (panel_fallback.get("title") or "").strip(),
+            "job_title": (details.get("title") or "").strip(),
             "client_recruiter": final_name,
             "email_to": final_email,
             "contact_card_opened": contact_opened,
         }
 
-    def _activate_sap_control_from_element(self, element):
-        return self.driver.execute_script(
-            """
+    def _activate_sap_control_from_element(self, element: ElementHandle):
+        return element.evaluate("""(node) => {
             try {
-                var node = arguments[0];
                 while (node) {
                     if (node.id) {
                         var ctrl = sap.ui.getCore().byId(node.id);
                         if (ctrl) {
-                            if (ctrl.firePress) {
-                                ctrl.firePress();
-                                return 'firePress:' + node.id;
-                            }
-                            if (ctrl.ontap) {
-                                ctrl.ontap({srcControl: ctrl});
-                                return 'ontap:' + node.id;
-                            }
+                            if (ctrl.firePress) { ctrl.firePress(); return 'firePress:' + node.id; }
+                            if (ctrl.ontap) { ctrl.ontap({srcControl:ctrl}); return 'ontap:' + node.id; }
                         }
                     }
                     node = node.parentElement;
                 }
                 return 'control_not_found';
-            } catch (e) {
-                return 'error:' + e.message;
-            }
-            """,
-            element,
-        )
+            } catch (e) { return 'error:' + e.message; }
+        }""")
 
     def _set_terms_checkbox(self):
+        # Scroll dialog to bottom to reveal checkbox
         try:
-            dialog = self.driver.find_element(
-                By.XPATH,
-                "//section[contains(@class,'sapMDialogSection')] | //div[contains(@class,'sapMDialogScrollCont')]",
+            dialog = self.page.query_selector(
+                "section.sapMDialogSection, div.sapMDialogScrollCont"
             )
-            self.driver.execute_script("arguments[0].scrollTop = arguments[0].scrollHeight;", dialog)
-            time.sleep(0.8)
+            if dialog:
+                dialog.evaluate("el => el.scrollTop = el.scrollHeight")
+            self.page.wait_for_timeout(800)
         except Exception:
             pass
 
-        result = self.driver.execute_script(
-            """
+        result = self.page.evaluate("""() => {
             try {
                 function visible(el) {
                     if (!el) return false;
@@ -1089,19 +636,16 @@ class SAPBot:
                     var rect = el.getBoundingClientRect();
                     return rect.width > 0 && rect.height > 0;
                 }
-                function inDialog(el) {
-                    return !!(el && el.closest && el.closest('.sapMDialog, [role="dialog"]'));
-                }
-                function clickLikeUser(el) {
+                function inDialog(el) { return !!(el && el.closest && el.closest('.sapMDialog, [role="dialog"]')); }
+                function clickLike(el) {
                     if (!el) return false;
-                    el.scrollIntoView({block: 'center'});
-                    ['mousedown', 'mouseup', 'click'].forEach(function (evt) {
-                        el.dispatchEvent(new MouseEvent(evt, {bubbles: true, cancelable: true, view: window}));
+                    el.scrollIntoView({block:'center'});
+                    ['mousedown','mouseup','click'].forEach(function(evt){
+                        el.dispatchEvent(new MouseEvent(evt,{bubbles:true,cancelable:true,view:window}));
                     });
                     if (el.click) el.click();
                     return true;
                 }
-
                 var controls = Object.values(sap.ui.getCore().mElements || {});
                 var target = null;
                 for (var c of controls) {
@@ -1113,211 +657,116 @@ class SAPBot:
                     if (!visible(dom) || !inDialog(dom)) continue;
                     var text = ((c.getText && c.getText()) || (dom.innerText || '')).toLowerCase();
                     if (!target) target = c;
-                    if (text.includes('term') || text.includes('agree') || text.includes('consent') || text.includes('condition') || text.includes('privacy')) {
-                        target = c;
-                        break;
-                    }
+                    if (text.includes('term') || text.includes('agree') || text.includes('consent') || text.includes('condition') || text.includes('privacy')) { target = c; break; }
                 }
                 if (target) {
                     if (target.setSelected) target.setSelected(true);
-                    if (target.fireSelect) target.fireSelect({selected: true});
+                    if (target.fireSelect) target.fireSelect({selected:true});
                     if (target.firePress) target.firePress();
-                    return {
-                        ok: true,
-                        source: 'sap_control',
-                        id: target.getId ? target.getId() : null,
-                        selected: target.getSelected ? target.getSelected() : null
-                    };
+                    return {ok:true, source:'sap_control', selected: target.getSelected ? target.getSelected() : null};
                 }
-
                 var dialogCheckboxes = Array.from(document.querySelectorAll(
                     '.sapMDialog [role="checkbox"], [role="dialog"] [role="checkbox"], ' +
                     '.sapMDialog input[type="checkbox"], [role="dialog"] input[type="checkbox"], ' +
-                    '.sapMDialog .sapMCb, [role="dialog"] .sapMCb, ' +
-                    '.sapMDialog .sapMCbBg, [role="dialog"] .sapMCbBg, ' +
-                    '.sapMDialog [class*="sapMCb"], [role="dialog"] [class*="sapMCb"]'
+                    '.sapMDialog .sapMCb, [role="dialog"] .sapMCb'
                 )).filter(visible);
-                if (!dialogCheckboxes.length) {
-                    return {
-                        ok: false,
-                        reason: 'checkbox_not_found',
-                        dialogText: (document.querySelector('.sapMDialog, [role="dialog"]') || {}).innerText || ''
-                    };
-                }
-
-                var domTarget = dialogCheckboxes.find(function (el) {
+                if (!dialogCheckboxes.length) return {ok:false, reason:'checkbox_not_found'};
+                var domTarget = dialogCheckboxes.find(function(el){
                     var holder = el.closest('label,div,section,li');
-                    var text = ((el.innerText || '') + ' ' + (holder ? holder.innerText || '' : '')).toLowerCase();
-                    return text.includes('term') || text.includes('agree') || text.includes('consent') || text.includes('condition') || text.includes('privacy');
+                    var text = ((el.innerText||'') + ' ' + (holder ? holder.innerText||'' : '')).toLowerCase();
+                    return text.includes('term') || text.includes('agree') || text.includes('consent') || text.includes('privacy');
                 }) || dialogCheckboxes[dialogCheckboxes.length - 1];
-
-                clickLikeUser(domTarget);
-
-                var nestedInput = domTarget.matches('input[type="checkbox"]')
-                    ? domTarget
-                    : (domTarget.querySelector ? domTarget.querySelector('input[type="checkbox"]') : null);
+                clickLike(domTarget);
+                var nestedInput = domTarget.matches('input[type="checkbox"]') ? domTarget : (domTarget.querySelector ? domTarget.querySelector('input[type="checkbox"]') : null);
                 if (nestedInput) {
                     nestedInput.checked = true;
-                    nestedInput.dispatchEvent(new Event('input', {bubbles: true}));
-                    nestedInput.dispatchEvent(new Event('change', {bubbles: true}));
+                    nestedInput.dispatchEvent(new Event('input',{bubbles:true}));
+                    nestedInput.dispatchEvent(new Event('change',{bubbles:true}));
                 }
-
-                return {
-                    ok: true,
-                    source: 'dom_checkbox',
-                    tag: domTarget.tagName,
-                    classes: domTarget.className || '',
-                    checked:
-                        domTarget.getAttribute('aria-checked') === 'true' ||
-                        !!domTarget.checked ||
-                        ((domTarget.className || '').indexOf('sapMCbMarkChecked') >= 0) ||
-                        ((domTarget.outerHTML || '').indexOf('sapMCbMarkChecked') >= 0) ||
-                        (nestedInput ? !!nestedInput.checked : false)
-                };
-            } catch (e) {
-                return {ok: false, reason: e.message};
-            }
-            """
-        )
-        print(f"   Checkbox SAP API result: {result}")
+                return {ok:true, source:'dom_checkbox', checked: domTarget.getAttribute('aria-checked')==='true' || !!domTarget.checked || (domTarget.className||'').indexOf('sapMCbMarkChecked') >= 0};
+            } catch (e) { return {ok:false, reason:e.message}; }
+        }""")
+        print(f"Checkbox result: {result}")
 
         if isinstance(result, dict) and result.get("checked") is True:
-            print("Checkbox accepted via single-click in-page handler")
+            print("Checkbox accepted via SAP control")
             return
 
-        checkbox = self.wait.until(
-            EC.presence_of_element_located(
-                (
-                    By.XPATH,
-                    "(//div[contains(@class,'sapMDialog')]//*[@role='checkbox'] | "
-                    "//div[@role='dialog']//*[@role='checkbox'] | "
-                    "//div[contains(@class,'sapMDialog')]//input[@type='checkbox'] | "
-                    "//div[@role='dialog']//input[@type='checkbox'] | "
-                    "//div[contains(@class,'sapMDialog')]//*[contains(@class,'sapMCb')] | "
-                    "//div[@role='dialog']//*[contains(@class,'sapMCb')])[last()]",
-                )
-            )
+        # Playwright fallback: find and click directly
+        checkbox = self.page.wait_for_selector(
+            "xpath=(//div[contains(@class,'sapMDialog')]//*[@role='checkbox'] | "
+            "//div[@role='dialog']//*[@role='checkbox'] | "
+            "//div[contains(@class,'sapMDialog')]//input[@type='checkbox'] | "
+            "//div[@role='dialog']//input[@type='checkbox'] | "
+            "//div[contains(@class,'sapMDialog')]//*[contains(@class,'sapMCb')] | "
+            "//div[@role='dialog']//*[contains(@class,'sapMCb')])[last()]",
+            timeout=10000,
         )
-        self.driver.execute_script("arguments[0].scrollIntoView({block:'center'});", checkbox)
-        time.sleep(0.5)
+        checkbox.scroll_into_view_if_needed()
+        self.page.wait_for_timeout(500)
 
         def is_checked():
-            aria_checked = checkbox.get_attribute("aria-checked")
-            dom_checked = checkbox.get_attribute("checked")
-            css_class = checkbox.get_attribute("class") or ""
-            parent_class = checkbox.get_attribute("outerHTML") or ""
-            return (
-                aria_checked == "true"
-                or dom_checked is not None
-                or "sapMCbMarkChecked" in css_class
-                or "sapMCbMarkChecked" in parent_class
-            )
+            try:
+                aria = checkbox.get_attribute("aria-checked")
+                cls  = checkbox.get_attribute("class") or ""
+                html = checkbox.evaluate("el => el.outerHTML")
+                return aria == "true" or "sapMCbMarkChecked" in cls or "sapMCbMarkChecked" in html
+            except Exception:
+                return False
 
         if not is_checked():
-            inner_spans = self.driver.find_elements(
-                By.XPATH,
-                "//div[contains(@class,'sapMDialog')]//*[contains(@class,'sapMCbBg') or contains(@class,'sapMCbMark') or contains(@class,'sapMCb')] | "
-                "//div[@role='dialog']//*[contains(@class,'sapMCbBg') or contains(@class,'sapMCbMark') or contains(@class,'sapMCb')]",
+            inner = self.page.query_selector_all(
+                "xpath=//div[contains(@class,'sapMDialog')]//*[contains(@class,'sapMCbBg') or contains(@class,'sapMCbMark')]"
+                " | //div[@role='dialog']//*[contains(@class,'sapMCbBg') or contains(@class,'sapMCbMark')]"
             )
-            if inner_spans:
-                self.driver.execute_script(
-                    """
-                    var el = arguments[0];
-                    if (el && typeof el.dispatchEvent === 'function') {
-                        ['mousedown', 'mouseup', 'click'].forEach(function (evt) {
-                            el.dispatchEvent(new MouseEvent(evt, {bubbles: true, cancelable: true, view: window}));
-                        });
-                    }
-                    if (el && typeof el.click === 'function') el.click();
-                    """,
-                    inner_spans[-1],
-                )
-                time.sleep(0.4)
+            if inner:
+                inner[-1].evaluate("""el => {
+                    ['mousedown','mouseup','click'].forEach(function(evt){
+                        el.dispatchEvent(new MouseEvent(evt,{bubbles:true,cancelable:true,view:window}));
+                    });
+                    if (el.click) el.click();
+                }""")
+                self.page.wait_for_timeout(400)
 
         if not is_checked():
             try:
-                ActionChains(self.driver).move_to_element(checkbox).pause(0.2).click().perform()
+                checkbox.hover()
+                self.page.wait_for_timeout(200)
+                checkbox.click()
             except Exception:
-                self.driver.execute_script("arguments[0].click();", checkbox)
-            time.sleep(0.5)
-
-        if not is_checked():
-            terms_targets = self.driver.find_elements(
-                By.XPATH,
-                "//div[contains(@class,'sapMDialog')]//*[contains(translate(normalize-space(.), 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'i understand and agree')] | "
-                "//div[contains(@class,'sapMDialog')]//*[contains(translate(normalize-space(.), 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'terms and conditions')]",
-            )
-            for target in terms_targets:
-                try:
-                    clickables = self.driver.find_elements(
-                        By.XPATH,
-                        ".//*[contains(@class,'sapMCb') or contains(@class,'sapMCbBg') or contains(@class,'sapMCbMark')]",
-                    )
-                    self.driver.execute_script("arguments[0].scrollIntoView({block:'center'});", target)
-                    ActionChains(self.driver).move_to_element(target).move_by_offset(-20, 0).click().perform()
-                    time.sleep(0.4)
-                    if is_checked():
-                        break
-                except Exception:
-                    continue
-
-        if not is_checked():
-            label_candidates = self.driver.find_elements(
-                By.XPATH,
-                "//div[contains(@class,'sapMDialog')]//*[contains(translate(normalize-space(.), 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'term') "
-                "or contains(translate(normalize-space(.), 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'agree') "
-                "or contains(translate(normalize-space(.), 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'consent') "
-                "or contains(translate(normalize-space(.), 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'privacy')]",
-            )
-            for candidate in reversed(label_candidates):
-                try:
-                    self.driver.execute_script("arguments[0].scrollIntoView({block:'center'});", candidate)
-                    ActionChains(self.driver).move_to_element(candidate).pause(0.2).click().perform()
-                    time.sleep(0.4)
-                    if is_checked():
-                        break
-                except Exception:
-                    continue
+                checkbox.evaluate("el => el.click()")
+            self.page.wait_for_timeout(500)
 
         if not is_checked():
             self._screenshot("06_terms_checkbox_error")
-            raise Exception("Terms checkbox remained unchecked after SAP API and DOM click attempts")
+            raise Exception("Terms checkbox remained unchecked after all click attempts")
 
-        print(
-            "Checkbox state: "
-            f"aria-checked={checkbox.get_attribute('aria-checked')} "
-            f"checked={checkbox.get_attribute('checked')}"
-        )
+        print(f"Checkbox state: aria-checked={checkbox.get_attribute('aria-checked')}")
 
-    def _press_dialog_button(self, text):
-        result = self.driver.execute_script(
-            """
+    def _press_dialog_button(self, text: str):
+        # Strategy 1: SAP API firePress
+        result = self.page.evaluate("""(wanted) => {
             try {
                 function visible(el) {
                     if (!el) return false;
                     var style = window.getComputedStyle(el);
-                    if (style.display === 'none' || style.visibility === 'hidden' || style.pointerEvents === 'none') {
-                        return false;
-                    }
+                    if (style.display === 'none' || style.visibility === 'hidden' || style.pointerEvents === 'none') return false;
                     var rect = el.getBoundingClientRect();
                     return rect.width > 0 && rect.height > 0;
                 }
                 function activeDialog() {
                     var dialogs = Array.from(document.querySelectorAll('.sapMDialog, [role="dialog"]')).filter(visible);
                     if (!dialogs.length) return null;
-                    dialogs.sort(function (a, b) {
-                        var zA = parseInt(window.getComputedStyle(a).zIndex || '0', 10);
-                        var zB = parseInt(window.getComputedStyle(b).zIndex || '0', 10);
-                        if (zA !== zB) return zA - zB;
-                        return Array.from(document.querySelectorAll('.sapMDialog, [role="dialog"]')).indexOf(a) -
-                            Array.from(document.querySelectorAll('.sapMDialog, [role="dialog"]')).indexOf(b);
+                    dialogs.sort(function(a,b){
+                        var zA = parseInt(window.getComputedStyle(a).zIndex||'0',10);
+                        var zB = parseInt(window.getComputedStyle(b).zIndex||'0',10);
+                        return zA !== zB ? zA - zB : 0;
                     });
                     return dialogs[dialogs.length - 1];
                 }
-                var wanted = arguments[0];
                 var dialog = activeDialog();
                 if (!dialog) return 'dialog_not_found';
-                var allControls = Object.values((((window.sap || {}).ui || {}).getCore || function () { return {}; })().mElements || {});
+                var allControls = Object.values((((window.sap||{}).ui||{}).getCore||function(){return{};})().mElements||{});
                 for (var c of allControls) {
                     if (!c.getMetadata || c.getMetadata().getName() !== 'sap.m.Button') continue;
                     if (!c.getText || c.getText().trim() !== wanted) continue;
@@ -1330,229 +779,81 @@ class SAPBot:
                     return 'firePress:' + (c.getId ? c.getId() : wanted);
                 }
                 return 'not_found';
-            } catch (e) {
-                return 'error:' + e.message;
-            }
-            """,
-            text,
-        )
+            } catch (e) { return 'error:' + e.message; }
+        }""", text)
         print(f"Dialog button '{text}' result: {result}")
         if "firePress:" in str(result):
             return result
 
-        js_dom_result = self.driver.execute_script(
-            """
+        # Strategy 2: DOM button click
+        dom_result = self.page.evaluate("""(wanted) => {
             try {
                 function visible(el) {
                     if (!el) return false;
                     var style = window.getComputedStyle(el);
-                    if (style.display === 'none' || style.visibility === 'hidden' || style.pointerEvents === 'none') {
-                        return false;
-                    }
+                    if (style.display === 'none' || style.visibility === 'hidden' || style.pointerEvents === 'none') return false;
                     var rect = el.getBoundingClientRect();
                     return rect.width > 0 && rect.height > 0;
                 }
                 function labelOf(el) {
-                    return (
-                        el.getAttribute('aria-label') ||
-                        el.getAttribute('title') ||
-                        el.getAttribute('value') ||
-                        el.innerText ||
-                        el.textContent ||
-                        ''
-                    ).replace(/\\s+/g, ' ').trim();
+                    return (el.getAttribute('aria-label') || el.getAttribute('title') || el.getAttribute('value') || el.innerText || el.textContent || '').replace(/\\s+/g,' ').trim();
                 }
-                function clickLikeUser(el) {
-                    if (!el) return false;
-                    el.scrollIntoView({block: 'center'});
-                    ['mousedown', 'mouseup', 'click'].forEach(function (evt) {
-                        if (typeof el.dispatchEvent === 'function') {
-                            el.dispatchEvent(new MouseEvent(evt, {bubbles: true, cancelable: true, view: window}));
-                        }
+                function clickLike(el) {
+                    el.scrollIntoView({block:'center'});
+                    ['mousedown','mouseup','click'].forEach(function(evt){
+                        if (typeof el.dispatchEvent === 'function') el.dispatchEvent(new MouseEvent(evt,{bubbles:true,cancelable:true,view:window}));
                     });
                     if (typeof el.click === 'function') el.click();
                     return true;
                 }
-
-                var wanted = String(arguments[0]).trim().toLowerCase();
                 var dialog = document.querySelector('.sapMDialog, [role="dialog"]');
-                if (!dialog) return {ok: false, reason: 'dialog_not_found'};
+                if (!dialog) return {ok:false, reason:'dialog_not_found'};
+                var nodes = Array.from(dialog.querySelectorAll('button, input[type="button"], [role="button"], .sapMBtn')).filter(visible);
+                var target = nodes.find(el => labelOf(el).toLowerCase() === wanted.toLowerCase())
+                          || nodes.find(el => labelOf(el).toLowerCase().includes(wanted.toLowerCase()));
+                if (!target) return {ok:false, reason:'not_found'};
+                clickLike(target);
+                return {ok:true, label: labelOf(target)};
+            } catch (e) { return {ok:false, reason:e.message}; }
+        }""", text)
+        print(f"Dialog button '{text}' DOM result: {dom_result}")
+        if isinstance(dom_result, dict) and dom_result.get("ok"):
+            return dom_result
 
-                var nodes = Array.from(dialog.querySelectorAll(
-                    'button, input[type="button"], input[type="submit"], [role="button"], .sapMBtn, .sapMBtnBase'
-                )).filter(visible);
-
-                var labels = nodes.map(function (el) { return labelOf(el); }).filter(Boolean);
-                var target = nodes.find(function (el) {
-                    return labelOf(el).toLowerCase() === wanted;
-                });
-                if (!target) {
-                    target = nodes.find(function (el) {
-                        return labelOf(el).toLowerCase().includes(wanted);
-                    });
-                }
-                if (!target) {
-                    return {ok: false, reason: 'dom_not_found', labels: labels};
-                }
-
-                clickLikeUser(target);
-                return {ok: true, source: 'dom_scan', label: labelOf(target)};
-            } catch (e) {
-                return {ok: false, reason: e.message};
-            }
-            """,
-            text,
-        )
-        print(f"Dialog button '{text}' DOM scan result: {js_dom_result}")
-        if isinstance(js_dom_result, dict) and js_dom_result.get("ok"):
-            return js_dom_result
-
-        js_page_result = self.driver.execute_script(
-            """
-            try {
-                function visible(el) {
-                    if (!el) return false;
-                    var style = window.getComputedStyle(el);
-                    if (style.display === 'none' || style.visibility === 'hidden') return false;
-                    var rect = el.getBoundingClientRect();
-                    return rect.width > 0 && rect.height > 0;
-                }
-                function labelOf(el) {
-                    return (
-                        el.getAttribute('aria-label') ||
-                        el.getAttribute('title') ||
-                        el.getAttribute('value') ||
-                        el.innerText ||
-                        el.textContent ||
-                        ''
-                    ).replace(/\\s+/g, ' ').trim();
-                }
-                function clickableOf(el) {
-                    var node = el;
-                    while (node) {
-                        var tag = (node.tagName || '').toLowerCase();
-                        var role = node.getAttribute ? node.getAttribute('role') : null;
-                        var cls = node.className || '';
-                        if (
-                            tag === 'button' ||
-                            tag === 'a' ||
-                            tag === 'input' ||
-                            role === 'button' ||
-                            (typeof cls === 'string' && (cls.indexOf('sapMBtn') >= 0 || cls.indexOf('sapMBtnBase') >= 0))
-                        ) {
-                            return node;
-                        }
-                        node = node.parentElement;
-                    }
-                    return el;
-                }
-                function clickLikeUser(el) {
-                    if (!el) return false;
-                    el.scrollIntoView({block: 'center'});
-                    ['mousedown', 'mouseup', 'click'].forEach(function (evt) {
-                        if (typeof el.dispatchEvent === 'function') {
-                            el.dispatchEvent(new MouseEvent(evt, {bubbles: true, cancelable: true, view: window}));
-                        }
-                    });
-                    if (typeof el.click === 'function') el.click();
-                    return true;
-                }
-
-                var wanted = String(arguments[0]).trim().toLowerCase();
-                var candidates = Array.from(document.querySelectorAll('button, input, a, span, div, bdi'))
-                    .filter(visible)
-                    .map(function (el) {
-                        var label = labelOf(el);
-                        var rect = el.getBoundingClientRect();
-                        return {el: el, label: label, top: rect.top, left: rect.left};
-                    })
-                    .filter(function (item) {
-                        var label = item.label.toLowerCase();
-                        return label === wanted || label.indexOf(wanted) >= 0;
-                    });
-
-                var labels = candidates.map(function (item) { return item.label; });
-                if (!candidates.length) {
-                    return {ok: false, reason: 'page_not_found', labels: labels};
-                }
-
-                candidates.sort(function (a, b) {
-                    if (b.top !== a.top) return b.top - a.top;
-                    return b.left - a.left;
-                });
-
-                var target = clickableOf(candidates[0].el);
-                clickLikeUser(target);
-                return {
-                    ok: true,
-                    source: 'page_scan',
-                    label: candidates[0].label,
-                    top: candidates[0].top,
-                    left: candidates[0].left
-                };
-            } catch (e) {
-                return {ok: false, reason: e.message};
-            }
-            """,
-            text,
-        )
-        print(f"Dialog button '{text}' page scan result: {js_page_result}")
-        if isinstance(js_page_result, dict) and js_page_result.get("ok"):
-            return js_page_result
-
-        dom_buttons = self.driver.find_elements(
-            By.XPATH,
-            f"//div[contains(@class,'sapMDialog')]//button[normalize-space()='{text}'] | "
-            f"//div[contains(@class,'sapMDialog')]//*[normalize-space()='{text}']/ancestor::button[1] | "
-            f"//div[contains(@class,'sapMDialog')]//bdi[normalize-space()='{text}']/ancestor::button[1] | "
-            f"//div[contains(@class,'sapMDialog')]//span[normalize-space()='{text}']/ancestor::button[1] | "
-            f"//div[contains(@class,'sapMDialog')]//input[@type='button' and @value='{text}'] | "
-            f"//div[contains(@class,'sapMDialog')]//*[@role='button' and normalize-space()='{text}'] | "
-            f"//div[contains(@class,'sapMDialog')]//*[@role='button'][.//*[normalize-space()='{text}']]",
-        )
-        if not dom_buttons:
-            raise Exception(f"Unable to locate dialog button '{text}'")
-
-        button = dom_buttons[0]
-        self.driver.execute_script("arguments[0].scrollIntoView({block:'center'});", button)
-        time.sleep(0.3)
+        # Strategy 3: Playwright locator
         try:
-            ActionChains(self.driver).move_to_element(button).pause(0.2).click().perform()
-        except Exception:
-            self.driver.execute_script(
-                """
-                var el = arguments[0];
-                ['mousedown', 'mouseup', 'click'].forEach(function (evt) {
-                    if (el && typeof el.dispatchEvent === 'function') {
-                        el.dispatchEvent(new MouseEvent(evt, {bubbles: true, cancelable: true, view: window}));
-                    }
-                });
-                if (el && typeof el.click === 'function') el.click();
-                """,
-                button,
+            btn = self.page.wait_for_selector(
+                f"xpath=//div[contains(@class,'sapMDialog')]//button[normalize-space()='{text}'] | "
+                f"//div[contains(@class,'sapMDialog')]//bdi[normalize-space()='{text}']/ancestor::button[1] | "
+                f"//div[@role='dialog']//button[normalize-space()='{text}']",
+                timeout=5000,
             )
-        return "dom_click"
+            btn.scroll_into_view_if_needed()
+            self.page.wait_for_timeout(300)
+            btn.hover()
+            btn.click()
+            return "playwright_click"
+        except Exception as e:
+            raise Exception(f"Unable to locate dialog button '{text}': {e}")
 
     # =========================
     # FIND & OPEN JOB
     # =========================
-    def find_and_open_job(self, req_id):
-        req_id = str(req_id).strip()
+    def find_and_open_job(self, req_id: str) -> bool:
+        req_id         = str(req_id).strip()
         normalized_req = re.sub(r"\s+", "", req_id).lower()
         print(f"Searching Requisition ID: {req_id}")
 
-        container = self.wait.until(
-            EC.presence_of_element_located((By.XPATH, "//section[contains(@class,'sapMPageEnableScrolling')]"))
-        )
+        self.page.wait_for_selector("section.sapMPageEnableScrolling", timeout=20000)
 
         for i in range(50):
-            jobs = self.driver.find_elements(By.XPATH, "//li[contains(@class,'sapMLIB')]")
+            jobs = self.page.query_selector_all("li.sapMLIB")
             print(f"Iteration {i + 1} | Jobs visible: {len(jobs)}")
 
             target_idx = None
             for idx, job in enumerate(jobs):
                 try:
-                    job_text = re.sub(r"\s+", "", job.text or "").lower()
+                    job_text = re.sub(r"\s+", "", job.inner_text() or "").lower()
                     if normalized_req in job_text:
                         target_idx = idx
                         print(f"Found JR {req_id} at index {idx}")
@@ -1562,150 +863,109 @@ class SAPBot:
 
             if target_idx is not None:
                 target = jobs[target_idx]
-                self.driver.execute_script("arguments[0].scrollIntoView({block: 'center'});", target)
-                time.sleep(0.5)
+                target.scroll_into_view_if_needed()
+                self.page.wait_for_timeout(500)
 
                 activation = self._activate_sap_control_from_element(target)
                 print(f"SAP control activation: {activation}")
 
                 try:
-                    ActionChains(self.driver).move_to_element(target).pause(0.2).click().perform()
+                    target.hover()
+                    target.click()
                 except Exception:
                     pass
 
-                self.driver.execute_script(
-                    """
+                self.page.evaluate("""(idx) => {
                     var items = document.querySelectorAll("li.sapMLIB");
-                    var el = items[arguments[0]];
+                    var el = items[idx];
                     if (el) {
-                        el.scrollIntoView({block: 'center'});
-                        el.dispatchEvent(new MouseEvent('mousedown', {bubbles: true, cancelable: true, view: window}));
-                        el.dispatchEvent(new MouseEvent('mouseup', {bubbles: true, cancelable: true, view: window}));
-                        el.dispatchEvent(new MouseEvent('click', {bubbles: true, cancelable: true, view: window}));
+                        el.scrollIntoView({block:'center'});
+                        ['mousedown','mouseup','click'].forEach(function(evt){
+                            el.dispatchEvent(new MouseEvent(evt,{bubbles:true,cancelable:true,view:window}));
+                        });
                         el.click();
                     }
-                    """,
-                    target_idx,
-                )
+                }""", target_idx)
 
                 matched, snippet = self._wait_for_details_panel(req_id, timeout=15)
                 if matched:
-                    print(f"Opened Requisition ID: {req_id}")
-                    print(f"Details panel: {snippet}")
+                    print(f"Opened Requisition ID: {req_id} | {snippet}")
                     self._screenshot("02_job_opened_and_verified")
                     return True
 
-                print(f"Details panel did not update for JR {req_id}. Last snippet: {snippet}")
+                print(f"Details panel did not update for JR {req_id}. Last: {snippet}")
                 self._screenshot("02_job_open_failed")
                 return False
 
-            self.driver.execute_script("arguments[0].scrollBy(0, 300);", container)
-            time.sleep(1.5)
+            self.page.evaluate("""() => {
+                var c = document.querySelector('section.sapMPageEnableScrolling');
+                if (c) c.scrollBy(0, 300);
+            }""")
+            self.page.wait_for_timeout(1500)
 
         print(f"Requisition ID {req_id} not found after scrolling")
         self._screenshot("02_job_not_found")
         return False
 
-    def _open_add_candidate_form(self, jr_number):
+    # =========================
+    # OPEN ADD CANDIDATE FORM
+    # =========================
+    def _open_add_candidate_form(self, jr_number: str):
         matched, snippet = self._wait_for_details_panel(jr_number, timeout=10)
         if not matched:
-            raise Exception(f"Right panel did not show JR {jr_number}. Last panel text: {snippet}")
-        time.sleep(2)
+            raise Exception(f"Right panel did not show JR {jr_number}. Last: {snippet}")
+        self.page.wait_for_timeout(2000)
 
-        all_btns = self.driver.find_elements(By.XPATH, "//button | //*[@role='button']")
-        print(f"Buttons on page: {len(all_btns)}")
+        menu_btn = None
+        for selector in [
+            "span[aria-label='Actions']",
+            "button[id*='overflowButton']",
+            "button[id*='action']",
+            "button.sapMBtn[id*='action']",
+        ]:
+            el = self.page.query_selector(selector)
+            if el:
+                menu_btn = el
+                print(f"Actions button found via: {selector}")
+                break
 
-        try:
-            menu_btn = None
-            selectors = [
-                (By.XPATH, "//span[@aria-label='Actions']"),
-                (By.XPATH, "//button[contains(@id,'overflowButton')]"),
-                (By.XPATH, "//button[contains(@id,'action')]"),
-                (By.XPATH, "//button[contains(@class,'sapMBtn')][contains(@id,'action')]"),
-                (By.XPATH, "//*[contains(@class,'sapUiIcon')][contains(@src,'overflow') or contains(@data-sap-ui,'overflow')]"),
-                (By.CSS_SELECTOR, "button[id*='action'], button[id*='Action'], button[id*='overflow']"),
-            ]
-            for by, selector in selectors:
-                matches = self.driver.find_elements(by, selector)
-                if matches:
-                    menu_btn = matches[0]
-                    print(f"Actions button found via: {selector}")
-                    break
+        if not menu_btn:
+            panel_btns = self.page.query_selector_all(".sapMFlexBox button, .sapMPage button")
+            if panel_btns:
+                menu_btn = panel_btns[-1]
+                print("Using last panel button")
 
-            if not menu_btn:
-                panel_btns = self.driver.find_elements(
-                    By.XPATH, "//div[contains(@class,'sapMFlexBox') or contains(@class,'sapMPage')]//button"
-                )
-                if panel_btns:
-                    menu_btn = panel_btns[-1]
-                    print(f"Using last panel button: {menu_btn.get_attribute('id')}")
-
-            if not menu_btn:
-                self._screenshot("03_actions_button_error")
-                raise Exception("Cannot find Actions button with any selector")
-
-            self.driver.execute_script(
-                """
-                arguments[0].dispatchEvent(new MouseEvent('click', {
-                    bubbles: true, cancelable: true, view: window
-                }));
-                """,
-                menu_btn,
-            )
-            time.sleep(2)
-            self._screenshot("03_actions_menu_opened")
-        except Exception as e:
+        if not menu_btn:
             self._screenshot("03_actions_button_error")
-            raise Exception(f"Actions button not found: {e}")
+            raise Exception("Cannot find Actions button")
+
+        menu_btn.evaluate("el => el.dispatchEvent(new MouseEvent('click', {bubbles:true,cancelable:true,view:window}))")
+        self.page.wait_for_timeout(2000)
+        self._screenshot("03_actions_menu_opened")
 
         try:
-            submit_el = self.wait.until(
-                EC.presence_of_element_located((By.XPATH, "//*[contains(text(),'Submit New Candidate')]"))
-            )
-            clickable = self.driver.execute_script(
-                """
-                var el = arguments[0];
-                while (el) {
-                    var tag = el.tagName.toLowerCase();
-                    var role = el.getAttribute('role');
-                    if (tag === 'button' || tag === 'a' || role === 'button' || role === 'menuitem' || role === 'option') {
-                        return el;
-                    }
-                    el = el.parentElement;
-                }
-                return arguments[0];
-                """,
-                submit_el,
-            )
-
-            ctrl_id = clickable.get_attribute("id")
-            result = self.driver.execute_script(
-                f"""
-                try {{
-                    var ctrl = sap.ui.getCore().byId('{ctrl_id}');
-                    if (ctrl && ctrl.firePress) {{
-                        ctrl.firePress();
-                        return 'firePress:ok';
-                    }}
-                    if (ctrl && ctrl.ontap) {{
-                        ctrl.ontap({{srcControl: ctrl}});
-                        return 'ontap:ok';
-                    }}
-                    return 'ctrl_not_found';
-                }} catch(e) {{ return 'error:' + e.message; }}
-                """
-            )
-            print(f"Submit New Candidate click result: {result}")
-            self.driver.execute_script("arguments[0].click();", clickable)
-            time.sleep(3)
+            submit_el = self.page.wait_for_selector("text=Submit New Candidate", timeout=10000)
+            ctrl_id   = submit_el.get_attribute("id")
+            if ctrl_id:
+                result = self.page.evaluate(f"""() => {{
+                    try {{
+                        var ctrl = sap.ui.getCore().byId('{ctrl_id}');
+                        if (ctrl && ctrl.firePress) {{ ctrl.firePress(); return 'firePress:ok'; }}
+                        if (ctrl && ctrl.ontap) {{ ctrl.ontap({{srcControl:ctrl}}); return 'ontap:ok'; }}
+                        return 'ctrl_not_found';
+                    }} catch(e) {{ return 'error:' + e.message; }}
+                }}""")
+                print(f"Submit New Candidate result: {result}")
+            submit_el.click()
+            self.page.wait_for_timeout(3000)
             self._screenshot("04_submit_new_candidate_clicked")
         except Exception as e:
             self._screenshot("04_submit_new_candidate_error")
             raise Exception(f"Submit New Candidate click failed: {e}")
 
         try:
-            WebDriverWait(self.driver, 30).until(
-                EC.presence_of_element_located((By.XPATH, "//input[@placeholder='Please enter first name.']"))
+            self.page.wait_for_selector(
+                "xpath=//input[@placeholder='Please enter first name.']", timeout=30000
             )
         except Exception as e:
             self._screenshot("04_form_not_opened")
@@ -1716,11 +976,7 @@ class SAPBot:
     # =========================
     # FILL & SUBMIT FORM
     # =========================
-    def upload_candidate(self, data):
-        """
-        data keys: jr_number, first_name, last_name, email, phone,
-                   country_code (+91), country (India), resume_path
-        """
+    def upload_candidate(self, data: dict):
         jr = str(data["jr_number"]).strip()
 
         if not self.find_and_open_job(jr):
@@ -1732,9 +988,9 @@ class SAPBot:
             raise Exception(f"Failed to open Add Candidate form: {e}")
 
         try:
-            self._fill("//input[@placeholder='Please enter first name.']", data["first_name"])
-            self._fill("//input[@placeholder='Please enter last name.']", data["last_name"])
-            self._fill("//input[@placeholder='Please enter email.']", data["email"])
+            self._fill("//input[@placeholder='Please enter first name.']",  data["first_name"])
+            self._fill("//input[@placeholder='Please enter last name.']",   data["last_name"])
+            self._fill("//input[@placeholder='Please enter email.']",       data["email"])
             self._fill("//input[@placeholder='Re-enter the email address']", data["email"])
             self._fill("//input[@placeholder='Please enter phone number']", data["phone"])
         except Exception as e:
@@ -1749,8 +1005,8 @@ class SAPBot:
             raise Exception(f"Failed to set dropdowns: {e}")
 
         try:
-            self.driver.find_element(By.XPATH, "//input[@type='file']").send_keys(data["resume_path"])
-            time.sleep(1)
+            self.page.locator("input[type='file']").set_input_files(data["resume_path"])
+            self.page.wait_for_timeout(1000)
             print("Resume uploaded")
             self._screenshot("05_form_filled_resume_uploaded")
         except Exception as e:
@@ -1762,32 +1018,22 @@ class SAPBot:
         except Exception as e:
             raise Exception(f"Failed to check terms checkbox: {e}")
 
-        time.sleep(5)
+        self.page.wait_for_timeout(5000)
 
         if data.get("submit", True):
             self._screenshot("07_before_add_candidate")
             self._press_dialog_button("Add Candidate")
 
-            # Poll for up to 15 s: either the dialog closes (success) or the
-            # "Submit Existing Candidate" dialog appears (candidate already in SAP).
-            deadline = time.time() + 15
+            deadline  = time.time() + 15
             submitted = False
             while time.time() < deadline:
                 try:
-                    dialogs = self.driver.find_elements(By.XPATH, "//div[contains(@class,'sapMDialog')]")
-                    still_visible = False
-                    for d in dialogs:
-                        try:
-                            if d.is_displayed():
-                                still_visible = True
-                                break
-                        except StaleElementReferenceException:
-                            pass  # element removed from DOM — dialog closed
+                    dialogs       = self.page.query_selector_all(".sapMDialog")
+                    still_visible = any(d.is_visible() for d in dialogs)
                     if not still_visible:
                         submitted = True
                         break
-                except StaleElementReferenceException:
-                    # Page changed while reading dialog list — dialog is gone
+                except Exception:
                     submitted = True
                     break
                 if self._is_existing_candidate_dialog():
@@ -1795,10 +1041,9 @@ class SAPBot:
                     sap_msg = self._extract_screen_error() or ""
                     try:
                         self._press_dialog_button("Cancel")
-                        time.sleep(1)
+                        self.page.wait_for_timeout(1000)
                     except Exception:
                         pass
-                    # Embed SAP screen message after "|" so schedulers can parse it
                     raise Exception(f"Candidate already exists in SAP|{sap_msg}")
                 time.sleep(0.5)
 
@@ -1807,15 +1052,16 @@ class SAPBot:
                 self._screenshot("08_after_add_candidate")
             else:
                 self._screenshot("08_dialog_not_closed")
-                raise Exception("Dialog did not close after submission - verify manually")
+                raise Exception("Dialog did not close after submission — verify manually")
         else:
             self._screenshot("07_before_cancel")
             self._press_dialog_button("Cancel")
             try:
-                WebDriverWait(self.driver, 15).until(
-                    EC.invisibility_of_element_located((By.XPATH, "//div[contains(@class,'sapMDialog')]"))
+                self.page.wait_for_selector(
+                    "xpath=//div[contains(@class,'sapMDialog')]",
+                    state="hidden", timeout=15000,
                 )
             except Exception:
-                raise Exception("Dialog did not close after cancel - verify manually")
+                raise Exception("Dialog did not close after cancel — verify manually")
             print(f"Cancelled form for JR {jr} (dry run)")
             self._screenshot("08_after_cancel")

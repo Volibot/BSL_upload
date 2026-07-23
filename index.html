@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Resume Upload — SAP Candidate Submission</title>
+  <title>Resume Upload — Client Portal Submission</title>
   <link rel="icon" type="image/png" href="/favicon.png?v=2" />
   <link rel="shortcut icon" href="/favicon.png?v=2" />
   <link rel="apple-touch-icon" href="/favicon.png?v=2" />
@@ -222,6 +222,13 @@
       box-shadow: 2px 0 14px rgba(0,0,0,.18); overflow: hidden;
     }
     #admin-sidebar.visible { display: flex; }
+    #user-sidebar {
+      position: fixed; left: 0; top: 50%; transform: translateY(-50%);
+      z-index: 900; display: none; flex-direction: column;
+      background: var(--accent); border-radius: 0 10px 10px 0;
+      box-shadow: 2px 0 14px rgba(0,0,0,.18); overflow: hidden;
+    }
+    #user-sidebar.visible { display: flex; }
     .admin-nav-btn {
       display: flex; flex-direction: column; align-items: center; gap: 5px;
       padding: 14px 13px; color: rgba(255,255,255,.85); cursor: pointer;
@@ -596,6 +603,131 @@
       transition: all 0.25s ease;
       display: none;
     }
+    /* ── Send Email Modal ───────────────────────────────────────── */
+    #se-overlay {
+      position: fixed; inset: 0; background: rgba(0,0,0,.45);
+      z-index: 8500; display: none; align-items: center; justify-content: center;
+    }
+    #se-overlay.open { display: flex; }
+    #se-panel {
+      background: #fff; border-radius: 14px; width: 99vw; max-width: 1800px;
+      max-height: 95vh; display: flex; flex-direction: column;
+      box-shadow: 0 20px 60px rgba(0,0,0,.22); overflow: hidden;
+    }
+    .se-header {
+      background: var(--accent); color: #fff; padding: 16px 20px;
+      display: flex; align-items: center; justify-content: space-between; flex-shrink: 0;
+    }
+    .se-header-title { font-size: 15px; font-weight: 700; }
+    .se-close { background: none; border: none; color: rgba(255,255,255,.8); font-size: 20px; cursor: pointer; padding: 0; line-height: 1; }
+    .se-close:hover { color: #fff; }
+    .se-body { display: flex; flex: 1; overflow: hidden; }
+    @media (max-width: 700px) { .se-body { flex-direction: column; } }
+    .se-left {
+      width: 300px; flex-shrink: 0; border-right: 1px solid var(--border);
+      display: flex; flex-direction: column; overflow: hidden;
+    }
+    @media (max-width: 700px) { .se-left { width: 100%; max-height: 200px; border-right: none; border-bottom: 1px solid var(--border); } }
+    .se-left-head {
+      padding: 10px 14px; border-bottom: 1px solid var(--border);
+      font-size: 11px; font-weight: 700; color: var(--muted);
+      text-transform: uppercase; letter-spacing: .06em;
+      display: flex; align-items: center; justify-content: space-between; flex-shrink: 0;
+    }
+    .se-filter-toggle {
+      display: flex; gap: 4px;
+    }
+    .se-filter-btn {
+      font-size: 11px; padding: 3px 9px; border-radius: 5px; border: 1px solid var(--border);
+      background: var(--light); color: var(--muted); cursor: pointer; font-family: var(--font);
+      transition: background .12s, color .12s;
+    }
+    .se-filter-btn.active { background: var(--accent); color: #fff; border-color: var(--accent); }
+    #se-candidate-list { flex: 1; overflow-y: auto; padding: 6px 0; }
+    .se-cand-row {
+      display: flex; align-items: flex-start; gap: 8px; padding: 8px 14px;
+      border-bottom: 1px solid #f1f5f9; cursor: pointer; transition: background .1s;
+    }
+    .se-cand-row:hover { background: #f8fafc; }
+    .se-cand-row:last-child { border-bottom: none; }
+    .se-cand-check { margin-top: 2px; flex-shrink: 0; cursor: pointer; }
+    .se-cand-info { flex: 1; min-width: 0; }
+    .se-cand-name { font-size: 13px; font-weight: 600; color: var(--text); }
+    .se-cand-meta { font-size: 11px; color: var(--muted); margin-top: 1px; }
+    .se-right { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+    .se-form { flex: 1; overflow-y: auto; padding: 16px 20px; display: flex; flex-direction: column; gap: 12px; }
+    .se-field label { font-size: 11px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: .06em; display: block; margin-bottom: 4px; }
+    .se-field input, .se-field textarea {
+      width: 100%; padding: 8px 11px; font-size: 13px; font-family: var(--font);
+      border: 1.5px solid var(--border); border-radius: 7px; background: var(--light);
+      color: var(--text); box-sizing: border-box; transition: border-color .15s;
+    }
+    .se-field input:focus, .se-field textarea:focus {
+      outline: none; border-color: var(--accent); background: #fff;
+      box-shadow: 0 0 0 3px rgba(15,82,186,.1);
+    }
+    .se-field textarea { resize: vertical; min-height: 80px; }
+    .se-sig-row { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; }
+    @media (max-width: 600px) { .se-sig-row { grid-template-columns: 1fr; } }
+    .se-footer {
+      padding: 14px 20px; border-top: 1px solid var(--border);
+      display: flex; gap: 10px; justify-content: flex-end; flex-shrink: 0;
+    }
+    .se-sel-all { font-size: 11px; color: var(--accent); cursor: pointer; text-decoration: underline; }
+
+    .btn-send-email {
+      font-size: 17px; padding: 5px 10px; border: 1px solid var(--border);
+      border-radius: 6px; background: var(--surface); color: var(--accent);
+      cursor: pointer; transition: background .15s, border-color .15s;
+      display: flex; align-items: center; gap: 5px;
+      font-family: var(--font); font-size: 13px; font-weight: 600;
+    }
+    .btn-send-email:hover { background: #eff6ff; border-color: var(--accent); }
+    .se-sig-save-row { display: flex; justify-content: flex-end; margin-top: 6px; }
+
+    /* Collapsible signature */
+    .se-sig-collapse { border-top: 1px solid var(--border); flex-shrink: 0; }
+    .se-sig-toggle {
+      width: 100%; padding: 10px 14px; background: none; border: none;
+      font-size: 11px; font-weight: 700; color: var(--muted); text-transform: uppercase;
+      letter-spacing: .06em; cursor: pointer; font-family: var(--font);
+      display: flex; align-items: center; justify-content: space-between; text-align: left;
+      transition: background .12s;
+    }
+    .se-sig-toggle:hover { background: var(--light); }
+    .se-sig-toggle-arrow { transition: transform .2s; display: inline-block; }
+    .se-sig-toggle.open .se-sig-toggle-arrow { transform: rotate(180deg); }
+    .se-sig-content { display: none; padding: 10px 14px 12px; }
+    .se-sig-content.open { display: block; }
+
+    /* Editable candidate table */
+    .se-table-wrap { overflow-x: auto; border: 1px solid var(--border); border-radius: 8px; }
+    .se-edit-tbl { width: 100%; border-collapse: collapse; font-size: 12px; white-space: nowrap; }
+    .se-edit-tbl thead th {
+      background: #0078d4; color: #fff; padding: 8px 10px; text-align: left;
+      font-weight: 600; font-size: 11px; white-space: nowrap; border: 1px solid #1a6fd4;
+      position: relative;
+    }
+    .se-edit-tbl th.se-frozen, .se-edit-tbl td.se-frozen { position: sticky; z-index: 2; }
+    .se-edit-tbl thead th.se-frozen { z-index: 3; background: #0078d4; }
+    .se-edit-tbl td.se-frozen { background: inherit; }
+    .se-edit-tbl th.se-freeze-end, .se-edit-tbl td.se-freeze-end {
+      box-shadow: 2px 0 5px -1px rgba(0,0,0,.15);
+    }
+    .se-edit-tbl tbody td {
+      padding: 4px 6px; border: 1px solid #e2e8f0; vertical-align: middle;
+    }
+    .se-edit-tbl tbody tr:nth-child(even) { background: #f8fafc; }
+    .se-edit-tbl tbody tr:hover { background: #eff6ff; }
+    .se-edit-ro { font-size: 12px; color: var(--text); padding: 2px 4px; }
+    .se-edit-input {
+      width: 100%; min-width: 90px; padding: 4px 6px; font-size: 12px;
+      border: 1px solid transparent; border-radius: 4px; background: transparent;
+      font-family: var(--font); color: var(--text); box-sizing: border-box;
+    }
+    .se-edit-input:hover { border-color: var(--border); background: #fff; }
+    .se-edit-input:focus { border-color: var(--accent); background: #fff; outline: none; box-shadow: 0 0 0 2px rgba(15,82,186,.1); }
+
     /* ── Login overlay ──────────────────────────────────────────── */
     #login-overlay {
       position: fixed; inset: 0; z-index: 9999;
@@ -670,11 +802,12 @@
   <div class="page-header">
     <div class="header-icon">📤</div>
     <div>
-      <h1>Resume Upload — SAP Candidate Submission</h1>
-      <p>Drop resumes · auto-parse · save to Supabase · SAP upload runs in background</p>
+      <h1>Resume Upload — Client Portal</h1>
+      <p>Drop resumes · auto-parse · save to Supabase · Client Portal upload runs in background</p>
     </div>
     <div class="header-user" id="headerUser" style="display:none">
       <span class="header-user-email" id="headerUserEmail"></span>
+      <button class="btn-send-email" id="openSendEmailBtn" title="Send Candidate Profiles" style="display:none;">📧 Send Profiles</button>
       <button class="btn-logout" id="logoutBtn">Sign out</button>
     </div>
   </div>
@@ -689,6 +822,18 @@
       <span class="nav-icon">💬</span>
       <span>Chat</span>
       <span class="chat-badge" id="adminChatBadge">0</span>
+    </button>
+    <button class="admin-nav-btn" id="adminSendEmailBtn">
+      <span class="nav-icon">📧</span>
+      <span>Send</span>
+    </button>
+  </div>
+
+  <!-- User sidebar (non-admins: Send Email only) -->
+  <div id="user-sidebar">
+    <button class="admin-nav-btn" id="userSendEmailBtn">
+      <span class="nav-icon">📧</span>
+      <span>Send</span>
     </button>
   </div>
 
@@ -711,9 +856,13 @@
       <!-- Users panel -->
       <div id="drawer-users-panel">
         <div id="admin-user-list"><div class="admin-empty">Loading…</div></div>
-        <div class="admin-add-row">
-          <input type="email" id="adminNewEmail" placeholder="Add email address (e.g. name@company.com)" />
-          <button class="btn btn-primary" id="adminAddBtn">+ Add User</button>
+        <div class="admin-add-row" style="flex-wrap:wrap;gap:8px;">
+          <input type="email" id="adminNewEmail" placeholder="Add email address (e.g. name@company.com)" style="flex:1;min-width:180px;" />
+          <select id="adminNewJrAccess" style="padding:9px 10px;font-size:12px;font-family:var(--font);border:1.5px solid var(--border);border-radius:7px;background:var(--light);color:var(--text);flex-shrink:0;">
+            <option value="subcon">Subcon JRs only</option>
+            <option value="all">All active JRs</option>
+          </select>
+          <button class="btn btn-primary" id="adminAddBtn" style="flex-shrink:0;">+ Add User</button>
         </div>
       </div>
 
@@ -805,7 +954,7 @@
       </div>
       <div class="field">
         <label for="recruiterEmail">Recruiter Email *</label>
-        <input type="email" id="recruiterEmail" placeholder="your.email@company.com" />
+        <input type="email" id="recruiterEmail" placeholder="your.email@company.com" readonly style="background:var(--surface);cursor:default;color:var(--muted);" />
       </div>
     </div>
     <div id="jr-info"></div>
@@ -858,18 +1007,132 @@
 
     <div class="info-note" id="sap-status-bar" style="display:none; margin-top:1rem;">
       <span class="note-icon" id="sap-status-icon">⏱</span>
-      <span id="sap-countdown">SAP upload in progress…</span>
+      <span id="sap-countdown">Client Portal upload in progress…</span>
     </div>
 
     <div class="info-note" style="margin-top:1rem;">
       <span class="note-icon">ℹ️</span>
       <span>Resumes are parsed directly in your browser — supports all formats
       including scanned PDFs and image resumes. Review and edit any field before submitting.
-      SAP upload runs automatically in the background.</span>
+      Client Portal upload runs automatically in the background.</span>
     </div>
   </div>
 
 </div><!-- /page-wrap -->
+
+<!-- Send Email Modal -->
+<div id="se-overlay">
+  <div id="se-panel">
+    <div class="se-header">
+      <span class="se-header-title">📧 Send Candidate Profiles</span>
+      <button class="se-close" id="seCloseBtn">✕</button>
+    </div>
+    <div class="se-body">
+      <!-- Left: candidate list -->
+      <div class="se-left">
+        <div class="se-left-head" style="flex-direction:column;align-items:stretch;gap:8px;">
+          <div style="display:flex;align-items:center;justify-content:space-between;">
+            <span>Uploads</span>
+            <span class="se-sel-all" id="seSelAll">Select all</span>
+          </div>
+          <div style="display:flex;gap:4px;flex-wrap:wrap;align-items:center;">
+            <button class="se-filter-btn active" id="seFilterToday"     data-filter="today">Today</button>
+            <button class="se-filter-btn"        id="seFilterYesterday" data-filter="yesterday">Yesterday</button>
+            <button class="se-filter-btn"        id="seFilterWeek"      data-filter="week">This Week</button>
+            <button class="se-filter-btn"        id="seFilterAll"       data-filter="all">All</button>
+            <input type="date" id="seFilterDate" title="Pick a specific date"
+              style="padding:3px 6px;font-size:11px;border:1px solid var(--border);border-radius:5px;background:var(--light);color:var(--text);font-family:var(--font);cursor:pointer;" />
+          </div>
+          <div style="display:flex;align-items:center;gap:6px;margin-top:2px;">
+            <label style="font-size:11px;color:var(--muted);white-space:nowrap;">JR</label>
+            <select id="seJrFilter" style="flex:1;padding:3px 6px;font-size:11px;border:1px solid var(--border);border-radius:5px;background:var(--light);color:var(--text);font-family:var(--font);">
+              <option value="">All JRs</option>
+            </select>
+          </div>
+        </div>
+        <div id="se-candidate-list"><div style="padding:1rem;text-align:center;color:var(--muted);font-size:13px;">Loading…</div></div>
+
+        <!-- Collapsible signature in left panel -->
+        <div class="se-sig-collapse">
+          <button class="se-sig-toggle" id="seSigToggle">
+            <span>✍️ Your Signature <span id="seSigStatus" style="font-size:10px;font-weight:400;color:var(--muted);margin-left:6px;text-transform:none;letter-spacing:0;"></span></span>
+            <span class="se-sig-toggle-arrow">▾</span>
+          </button>
+          <div class="se-sig-content" id="seSigContent">
+            <div style="display:flex;flex-direction:column;gap:8px;">
+              <div class="se-field" style="margin:0;">
+                <label>Name</label>
+                <input type="text" id="seSigName" placeholder="Full Name" />
+              </div>
+              <div class="se-field" style="margin:0;">
+                <label>Job Title</label>
+                <input type="text" id="seSigTitle" placeholder="e.g. Recruitment Consultant" />
+              </div>
+              <div class="se-field" style="margin:0;">
+                <label>Phone</label>
+                <input type="text" id="seSigPhone" placeholder="+91 9999999999" />
+              </div>
+              <div class="se-sig-save-row">
+                <button class="btn btn-primary" id="seSaveSigBtn" style="padding:6px 14px;font-size:12px;">💾 Save Signature</button>
+              </div>
+              <div id="seSigPreview" style="display:none;margin-top:10px;padding:10px;background:#fff;border:1px solid #e2e8f0;border-radius:6px;overflow:auto;font-size:11px;"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Right: email compose + editable table -->
+      <div class="se-right">
+        <div class="se-form">
+          <!-- Vendor-only: To + Subject -->
+          <div id="seVendorFields" style="display:none;">
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+              <div class="se-field">
+                <label>To</label>
+                <input type="email" id="seToInput" placeholder="manoj.nair@volibits.com, vendor@…" />
+              </div>
+              <div class="se-field">
+                <label>Subject</label>
+                <input type="text" id="seSubjectInput" placeholder="[Vendor submission]: Oracle FICO" />
+              </div>
+            </div>
+          </div>
+
+          <!-- Internal-only: per-JR cards -->
+          <div id="seJrCards" style="display:none;"></div>
+
+          <!-- Shared: CC + Body -->
+          <div class="se-field">
+            <label>CC</label>
+            <input type="text" id="seCcInput" placeholder="e.g. rec_team@volibits.com" />
+          </div>
+          <!-- Shown for vendors only; internal users get per-JR body inside each card -->
+          <div class="se-field" id="seSharedBodyWrap">
+            <label>Body</label>
+            <textarea id="seBodyInput" rows="3" placeholder="Hi Team,&#10;&#10;Please find attached profiles for…&#10;&#10;Regards,"></textarea>
+          </div>
+
+          <!-- Editable candidate table -->
+          <div>
+            <div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px;">
+              Candidate Details
+              <span style="font-size:10px;font-weight:400;text-transform:none;letter-spacing:0;color:var(--muted);margin-left:6px;">Fill in the highlighted columns before sending</span>
+            </div>
+            <div id="seEditTableContainer">
+              <div class="se-table-wrap"><table class="se-edit-tbl"><tbody>
+                <tr><td colspan="13" style="text-align:center;color:var(--muted);padding:12px;">Select candidates from the left panel</td></tr>
+              </tbody></table></div>
+            </div>
+          </div>
+        </div>
+        <div class="se-footer">
+          <button class="btn btn-ghost" id="seCancelBtn">Cancel</button>
+          <button class="btn btn-success" id="seSendBtn">📧 Send Email</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
 
 <div class="toast" id="toast"></div>
 <div id="loading-overlay">
@@ -932,14 +1195,15 @@
       error:     ["Error",                  "badge-error"],
       uploading: ["Uploading file…",        "badge-uploading"],
       saving:    ["Saving to DB…",          "badge-saving"],
-      queued:    ["Queued for SAP ✓",       "badge-queued"],
-      triggered:   ["SAP workflow triggered ✓", "badge-triggered"],
+      queued:    ["Queued for Client Portal ✓",       "badge-queued"],
+      triggered:   ["Client Portal workflow triggered ✓", "badge-triggered"],
       saved:       ["Saved ✓",               "badge-saved"],
-      "sap-wait":  ["Waiting for SAP…",      "badge-parsing"],
-      "sap-ok":    ["SAP Uploaded ✓",        "badge-done"],
-      "sap-fail":  ["SAP Failed",            "badge-error"],
-      "sap-exists":["Already in SAP",        "badge-uploading"],
-      "sap-skip":  ["SAP Skipped",           "badge-pending"],
+      "sap-wait":  ["Uploading to Client Portal…",        "badge-parsing"],
+      "sap-ok":    ["Uploaded to Client Portal ✓",       "badge-done"],
+      "sap-fail":  ["Client Portal Upload Failed",        "badge-error"],
+      "sap-exists":["Already in Client Portal",                       "badge-uploading"],
+      "sap-dup":   ["Duplicate – Please upload with alternate Mail ID", "badge-error"],
+      "sap-skip":  ["Skipped",                                          "badge-pending"],
     };
     const [label, cls] = map[status] || ["Pending","badge-pending"];
     return `<span class="badge ${cls}">${label}</span>`;
@@ -2005,9 +2269,8 @@ F. If text is garbled, watermarked, or name is unclear → output empty lines.${
       allJrLookup = {};
       allData.forEach(jr => { allJrLookup[jr.jr_no.toLowerCase()] = jr; });
       const activeData = allData.filter(jr => (jr.jr_status || "").trim().toLowerCase() === "active");
-      const _userDomain = (recruiterEl.value.trim().toLowerCase().split("@")[1] || "");
-      const _isInternal = ALLOWED_DOMAINS.includes(_userDomain);
-      const data = _isInternal
+      const _jrAccess = _getUserJrAccess(recruiterEl.value.trim().toLowerCase());
+      const data = _jrAccess === "all"
         ? activeData
         : activeData.filter(jr => /subcon/i.test(jr.skill_name || ""));
       jrMaster = {};
@@ -2065,6 +2328,15 @@ F. If text is garbled, watermarked, or name is unclear → output empty lines.${
     const jr   = jrMaster[jrSelect.value];
     const info = document.getElementById("jr-info");
     if (jr) {
+      // Autofill client recruiter for volibits.com users when a JR is selected directly
+      const _userDomain = (recruiterEl.value.trim().toLowerCase().split("@")[1] || "");
+      if (_userDomain === "volibits.com" && (jr.client_recruiter || "").trim()) {
+        const recruiterName       = jr.client_recruiter.trim();
+        clientRecruiterEl.value   = recruiterName;
+        clientRecruiterSrch.value = recruiterName;
+        activeClientRecruiter     = recruiterName;
+      }
+
       const skill   = esc(jr.skill_name || "—");
       const fullJD  = esc(jr.job_details || "No details");
       const preview = esc((jr.job_details || "No details").substring(0, 140));
@@ -2409,7 +2681,7 @@ F. If text is garbled, watermarked, or name is unclear → output empty lines.${
           row.status = "queued"; row.recordId = rec.id ? String(rec.id) : null;
           refreshRowStatus(row);
           if (rec.id) insertedIds.push(String(rec.id));
-          summary.push({ candidate: `${firstName} ${lastName}`.trim(), status: "Queued for SAP ✓" });
+          summary.push({ candidate: `${firstName} ${lastName}`.trim(), status: "Queued for Client Portal ✓" });
         }
       } catch (e) {
         row.status = "error"; refreshRowStatus(row);
@@ -2420,7 +2692,7 @@ F. If text is garbled, watermarked, or name is unclear → output empty lines.${
     // Phase 3 — Trigger GitHub Actions
     let ghOk = false;
     if (insertedIds.length) {
-      showLoader("Triggering SAP upload workflow…");
+      showLoader("Triggering Client Portal upload…");
       try { ghOk = await triggerGitHub(insertedIds, recruiterEmail); } catch (e) { /* non-fatal */ }
       if (ghOk) {
         for (const row of toSubmit) {
@@ -2436,7 +2708,7 @@ F. If text is garbled, watermarked, or name is unclear → output empty lines.${
     showSummary({ count: queued, github_fired: ghOk, summary, estSecs: ghOk ? estSecs : 0 });
     toast(
       queued
-        ? `✓ ${queued} candidate(s) queued. ${ghOk ? "Email notification will follow." : "SAP workflow will run on schedule."}`
+        ? `✓ ${queued} candidate(s) queued. ${ghOk ? "Email notification will follow." : "Client Portal upload will run on schedule."}`
         : "No new records saved.",
       queued ? "ok" : "info",
       7000
@@ -2449,16 +2721,20 @@ F. If text is garbled, watermarked, or name is unclear → output empty lines.${
   });
 
   // ── SAP Polling ───────────────────────────────────────────────────────
-  const SAP_TERMINAL       = ["Succeeded", "Failed", "Already in SAP", "Skipped"];
+  const SAP_TERMINAL       = ["Succeeded", "Failed", "Already in SAP", "Skipped",
+                              "Duplicate – Please upload with alternate Mail ID",
+                              "Already uploaded by Volibits Team"];
   const SAP_POLL_MS        = 25000;   // poll every 25 seconds
   const SAP_POLL_TIMEOUT_MS = 20 * 60 * 1000; // give up after 20 min
   let   _sapPollTimer      = null;
 
   function _sapStatusToBadge(s) {
-    if (s === "Succeeded")      return "sap-ok";
-    if (s === "Already in SAP") return "sap-exists";
-    if (s === "Skipped")        return "sap-skip";
-    if (s === "Failed")         return "sap-fail";
+    if (s === "Succeeded")                                    return "sap-ok";
+    if (s === "Already in SAP")                               return "sap-exists";
+    if (s === "Already uploaded by Volibits Team")            return "sap-exists";
+    if (s === "Duplicate – Please upload with alternate Mail ID") return "sap-dup";
+    if (s === "Skipped")                                      return "sap-skip";
+    if (s === "Failed")                                       return "sap-fail";
     return "sap-wait";
   }
 
@@ -2483,7 +2759,7 @@ F. If text is garbled, watermarked, or name is unclear → output empty lines.${
     async function poll() {
       const pending = pollingRows.filter(r => !r._sapDone && r.recordId);
       if (!pending.length) {
-        if (countdownEl) { countdownEl.textContent = "SAP upload complete ✓"; statusIcon.textContent = "✅"; }
+        if (countdownEl) { countdownEl.textContent = "Profile action completed — refer to the Status column for profile status"; statusIcon.textContent = "✅"; }
         return;
       }
       if (Date.now() - startedAt > SAP_POLL_TIMEOUT_MS) {
@@ -2508,15 +2784,15 @@ F. If text is garbled, watermarked, or name is unclear → output empty lines.${
         const remaining = pollingRows.filter(r => !r._sapDone).length;
         if (countdownEl) {
           if (allDone) {
-            countdownEl.textContent = "SAP upload complete ✓";
+            countdownEl.textContent = "Profile action completed — refer to the Status column for profile status";
             statusIcon.textContent  = "✅";
             return;
           }
           const elapsedSecs = (Date.now() - startedAt) / 1000;
           const remSecs     = Math.max(0, estSecs - elapsedSecs);
           countdownEl.textContent = remSecs > 5
-            ? `SAP upload in progress — ${remaining} remaining · est. ${Math.ceil(remSecs / 60)} min left`
-            : `SAP upload in progress — ${remaining} remaining · finishing soon…`;
+            ? `Client Portal upload in progress — ${remaining} remaining · est. ${Math.ceil(remSecs / 60)} min left`
+            : `Client Portal upload in progress — ${remaining} remaining · finishing soon…`;
         }
       } catch (e) { /* non-fatal — will retry */ }
 
@@ -2533,7 +2809,7 @@ F. If text is garbled, watermarked, or name is unclear → output empty lines.${
     if (github_fired && estSecs > 0) {
       const estMins = Math.ceil(estSecs / 60);
       document.getElementById("sap-countdown").textContent =
-        `SAP upload running — est. ~${estMins} min · status badges update automatically.`;
+        `Client Portal upload running — est. ~${estMins} min · status badges update automatically.`;
       document.getElementById("sap-status-icon").textContent = "⏱";
       statusBar.style.display = "flex";
     } else {
@@ -2578,7 +2854,7 @@ F. If text is garbled, watermarked, or name is unclear → output empty lines.${
   async function _loadAllowedUsersCache() {
     try {
       const res = await fetch(
-        `${SUPABASE_URL}/rest/v1/resupd_allowed_users?select=email,added_by,added_at&order=added_at.asc`,
+        `${SUPABASE_URL}/rest/v1/resupd_allowed_users?select=email,added_by,added_at,jr_access&order=added_at.asc`,
         { headers: sbHeaders() }
       );
       if (res.ok) _allowedUsersCache = await res.json();
@@ -2590,10 +2866,19 @@ F. If text is garbled, watermarked, or name is unclear → output empty lines.${
     const lower  = email.toLowerCase();
     const domain = lower.split("@")[1] || "";
     if (ALLOWED_DOMAINS.includes(domain)) return true;
-    if ((_allowedUsersCache || []).some(u => u.email.toLowerCase() === lower)) return true;
+    const dbUser = (_allowedUsersCache || []).find(u => u.email.toLowerCase() === lower);
+    if (dbUser && dbUser.is_active !== false) return true;
     // Fallback to config in case Supabase unreachable
     if ((ALLOWED_EMAILS || []).some(e => e.toLowerCase() === lower)) return true;
     return false;
+  }
+
+  function _getUserJrAccess(email) {
+    const lower  = email.toLowerCase();
+    const domain = lower.split("@")[1] || "";
+    if (ALLOWED_DOMAINS.includes(domain)) return "all";
+    const dbUser = (_allowedUsersCache || []).find(u => u.email.toLowerCase() === lower);
+    return (dbUser && dbUser.jr_access === "all") ? "all" : "subcon";
   }
 
   // ── Admin panel ───────────────────────────────────────────────────────
@@ -2608,23 +2893,76 @@ F. If text is garbled, watermarked, or name is unclear → output empty lines.${
       return;
     }
     list.innerHTML = users.map(u => {
-      const date = u.added_at ? new Date(u.added_at).toLocaleDateString("en-GB") : "";
+      const date     = u.added_at ? new Date(u.added_at).toLocaleDateString("en-GB") : "";
+      const active   = u.is_active !== false;
+      const access   = u.jr_access === "all" ? "all" : "subcon";
+      const accessLabel = access === "all"
+        ? `<span style="font-size:10px;font-weight:700;background:#dcfce7;color:#166534;padding:2px 7px;border-radius:10px;">All JRs</span>`
+        : `<span style="font-size:10px;font-weight:700;background:#dbeafe;color:#1d4ed8;padding:2px 7px;border-radius:10px;">Subcon only</span>`;
+      const disabledStyle = active ? "" : "opacity:.5;";
       return `
-        <div class="admin-user-row">
-          <div>
-            <div class="admin-user-email">${esc(u.email)}</div>
+        <div class="admin-user-row" style="${disabledStyle}">
+          <div style="flex:1;min-width:0;">
+            <div class="admin-user-email" style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;">
+              ${esc(u.email)}
+              ${accessLabel}
+              ${!active ? `<span style="font-size:10px;font-weight:700;background:#fee2e2;color:#b91c1c;padding:2px 7px;border-radius:10px;">Disabled</span>` : ""}
+            </div>
             <div class="admin-user-meta">${date ? `Added ${date}` : ""}${u.added_by ? ` by ${esc(u.added_by)}` : ""}</div>
           </div>
-          <button class="admin-remove-btn" onclick="adminRemoveUser('${esc(u.email)}')" title="Remove">✕ Remove</button>
+          <div style="display:flex;gap:4px;flex-shrink:0;align-items:center;">
+            <select onchange="adminUpdateJrAccess('${esc(u.email)}', this.value)" style="font-size:11px;padding:3px 6px;border:1px solid var(--border);border-radius:5px;background:var(--light);color:var(--text);font-family:var(--font);">
+              <option value="subcon" ${access === "subcon" ? "selected" : ""}>Subcon</option>
+              <option value="all"    ${access === "all"    ? "selected" : ""}>All JRs</option>
+            </select>
+            <button class="admin-remove-btn" onclick="adminToggleUser('${esc(u.email)}', ${active})" title="${active ? "Disable" : "Enable"}" style="color:${active ? "#f59e0b" : "#22c55e"}">
+              ${active ? "⏸ Disable" : "▶ Enable"}
+            </button>
+            <button class="admin-remove-btn" onclick="adminRemoveUser('${esc(u.email)}')" title="Remove permanently">✕</button>
+          </div>
         </div>`;
     }).join("");
+  }
+
+  async function adminToggleUser(email, currentlyActive) {
+    const action = currentlyActive ? "disable" : "enable";
+    if (!confirm(`${action.charAt(0).toUpperCase() + action.slice(1)} access for ${email}?`)) return;
+    try {
+      const res = await fetch(
+        `${SUPABASE_URL}/rest/v1/resupd_allowed_users?email=eq.${encodeURIComponent(email)}`,
+        {
+          method: "PATCH",
+          headers: sbHeaders(),
+          body: JSON.stringify({ is_active: !currentlyActive }),
+        }
+      );
+      if (!res.ok) throw new Error(res.status);
+      toast(`${email} ${currentlyActive ? "disabled" : "enabled"}`, "ok");
+      _loadAdminPanel();
+    } catch (e) { toast(`Failed: ${e.message}`, "err"); }
+  }
+
+  async function adminUpdateJrAccess(email, value) {
+    try {
+      const res = await fetch(
+        `${SUPABASE_URL}/rest/v1/resupd_allowed_users?email=eq.${encodeURIComponent(email)}`,
+        {
+          method: "PATCH",
+          headers: sbHeaders(),
+          body: JSON.stringify({ jr_access: value }),
+        }
+      );
+      if (!res.ok) throw new Error(res.status);
+      toast(`Updated access for ${email}: ${value === "all" ? "All JRs" : "Subcon only"}`, "ok");
+      await _loadAllowedUsersCache();
+    } catch (e) { toast(`Failed to update access: ${e.message}`, "err"); }
   }
 
   async function _loadAdminPanel() {
     document.getElementById("admin-user-list").innerHTML = `<div class="admin-empty">Loading…</div>`;
     try {
       const res = await fetch(
-        `${SUPABASE_URL}/rest/v1/resupd_allowed_users?select=email,added_by,added_at&order=added_at.asc`,
+        `${SUPABASE_URL}/rest/v1/resupd_allowed_users?select=email,added_by,added_at,jr_access&order=added_at.asc`,
         { headers: sbHeaders() }
       );
       if (!res.ok) throw new Error(res.status);
@@ -2651,8 +2989,9 @@ F. If text is garbled, watermarked, or name is unclear → output empty lines.${
   }
 
   document.getElementById("adminAddBtn").addEventListener("click", async () => {
-    const input = document.getElementById("adminNewEmail");
-    const email = input.value.trim().toLowerCase();
+    const input     = document.getElementById("adminNewEmail");
+    const jrAccess  = document.getElementById("adminNewJrAccess").value;
+    const email     = input.value.trim().toLowerCase();
     if (!isValidEmail(email)) { toast("Enter a valid email address", "err"); return; }
     const recruiter = recruiterEl.value.trim();
     try {
@@ -2661,7 +3000,7 @@ F. If text is garbled, watermarked, or name is unclear → output empty lines.${
         {
           method: "POST",
           headers: sbHeaders(),
-          body: JSON.stringify({ email, added_by: recruiter }),
+          body: JSON.stringify({ email, added_by: recruiter, jr_access: jrAccess, is_active: true }),
         }
       );
       if (res.status === 409) { toast("User already exists", "info"); return; }
@@ -2697,12 +3036,16 @@ F. If text is garbled, watermarked, or name is unclear → output empty lines.${
   document.getElementById("adminDrawerClose").addEventListener("click", _closeAdminDrawer);
   adminDrawerOverlay.addEventListener("click", _closeAdminDrawer);
 
+  const userSidebar = document.getElementById("user-sidebar");
+
   function _syncAdminPanel() {
     const email = recruiterEl.value.trim();
     if (_isAdmin(email)) {
       adminSidebar.classList.add("visible");
+      if (userSidebar) userSidebar.classList.remove("visible");
     } else {
       adminSidebar.classList.remove("visible");
+      if (userSidebar) userSidebar.classList.add("visible");
       _closeAdminDrawer();
     }
   }
@@ -3275,6 +3618,789 @@ F. If text is garbled, watermarked, or name is unclear → output empty lines.${
       await _adminChatRenderConvList();
     }
   }
+
+  // ══════════════════════════════════════════════════════════════════════
+  // ║  SEND CANDIDATE PROFILES EMAIL                                     ║
+  // ══════════════════════════════════════════════════════════════════════
+
+  const VOLIBITS_LOGO = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAIwAAAAtCAYAAAB8gIN1AAAAAXNSR0IArs4c6QAAAARnQU1BAACxjwv8YQUAAAAJcEhZcwAADsMAAA7DAcdvqGQAABh2SURBVHhe7VwJlBTV1R5NYqKJwZmqnpmq6umueq+qZ4NB2RdlWKaqumdg2EEBAREQlE02FZUJIpvgCoisgoDsyCaiiIDbr/mN+rvFJH+MiTHuhmV6X27Oreoeumt6hhkE4US+c+7p7b777nvve9t9rzoj4wJG7NURV8beGDs99vroGbGXR86IvT9hRuyVUYOsehdxEQZiR0Y8Dn+bAvD+OFP+PgUiR0cOt+pdxEVkxA4PawdvjAJ4eQTEDg8HeGcMRA8N32fVu4ifIEIv3Fgae2vktMjR4VMjLw4dB3tGXxE9NPQdeHMkRA8NBXj5Joi+PNwHh4eJ1rQX8RND7OWbbJGXbjwO744G+P9xEH1x8KOR5weNhrdGQvSFwRA9OBjwfei5QdOtaS/iJ4jwcwPXw5vDAY7eCNEXbvg49txgLnJw0JdweAhEDlwP8OpQfH0HqjIutaa9iJ8YQvv7lcLRwQDPDwR4ZQiE9g3oFN7bfym8PhQi+wdA7PmBEHvpBgjt7dfGmvYizhNC+/p0ir448NXI3j4vhk4rfQ+ixF4c8GJ4T5/HrLbqQ2hXn8mxI9cfiB3o/3xoX9+dsdf7XR7e2/f3cPh6gFcGQXhPn9WhPb2uhSM3QPTZfhDe2xfgtcEQ3tN3sdXWRZxHwOH+vwnv7f0JvDEY4MUBAIcaIC8NBHhtEAR3VQ622kuH0K7KVnCwP8CRgQBvD4XQnl53B3f0HAlHrwfY3xci+/t8D/v6kMje3h+hXmh3L4AXkDS9P/92vfu3VnsXcZ4R2lXZNvZcb4ju6QmhZyobJPBcbwjt6vllbP/pGzT8TI+34GBfgAN9MO3/xXb2ouF9PU/G9vUCONIfgjsqhgZ29JgBRwcYtsO7KgEO9YPAjop+VltnCrtdy8rKdRfZcjW3zV4+nuX066w6Z4LfJuzaNTcrdJ+QJahtrTr/lQhuK38EDvWB0PYKCO1ogGyvANQPbit/3GorGf6t5eNRL7KzO8CBXhDaXt4ptL18ExzsbXwO7yh/Obijonlkb2U4sqsHBNHuwd4Q3Fq+32qrsWjZsuUvWF7daBP0j1hO+57ldbAJ5ZDr6AMsr1VZ9RGxwzfL8PvRo2Nvjh4Dh4cVWH83AZcwnPYkK3g+rG1XnWzVPhP8+5lhV8XeHDUo9oex40Ovjjwr5D6riD2l/jq0zfMZ7OkOwa3uBklkhwdgb3fwbfZ0tNpDwNby3PDO8uPRZyoAnu8JwS368sBmdzkcqIToDg9EdlfEvFu0NsGt7oOwv9KwGX2mHELPeIL+jRXEaq+xsNvbXc5y6vFsewWwghuwYVleg2x7d2B4dZpVP/Js/zGxI4P98PubACV2ZHAo9Gy/NASoupThtK/QTm272lirdmMRO3BDm+hLg/6e8ANeGwbh5wZuAKj6uVX3vMK7sWsv2FcOoc0qBDedXgKbygD2eCCwSX0PIOMSqz3/hm6bYH8FRLdpENqqfRvYqBWEtpR9EtupA34f2NB1um9jt8HwXAUEN5UZYn5fNtVq60zgdJb+iuXUz2xGo2o1ko4woW2eVrCvByR3GNhdAUhu32a1U7KuSRj1LzbBk8buDyPMN7sqrwxu8/wDO1go0TG3ewCO9oXQdvfdVv3zDv9TnXfDbg3867tAYMPpJbihC8AeHbxPlY5LsbO+czfYqUJ4YxeAvTr41pcO8a/rPBvfx7Z2w3R/Pba2Cw1t6vJtdEs3Iz/U92/o/CFszfhZsq0zRWMI41vR+hHY0gG8K1qnCGzuAN6VrVcl655LwnifaNUDNrUHn9WPp9qBd2WrP11w8ajv13V0BDd08kaeLgX/uusaJKgb3NjJG9t0XR7agK39L/Ovu+5j2NoZYFsX8K299lBo7bUtw5tKo+H1nQB2doXqddd29z3ZcTk80w38a6+D0PpOENvSGXxrOpy1+boxhPEuKFwHjzeF6gcKwZsksKQpVC8o3JGsey4J43ugYCgsRT8KUvyIPVyEvn0Oy1v+wpomGRzX/YqcHFVihIrOLN/NZf39nMC3qu1k2F4K/jXtsQFPL6vbA2wrxffbjPSr298LO0ohtLYDhNZ3jFSv7tjcu6b9Edh8HcDWTqi/48TqdqX4OfBkPP32UvCuarfG6ssPQWMIU303HQXzXeC/m4IvLvgev/PeJd2erHsuCRO4RymMzqQQnnnKDxSY6wLfDOlZq74su3/JcGX3sbx7O8tr/8ty2ucsr4Vy8noCK5TNsOqfE+B6xLu8zTuwsT14V7QB38rTS2BlGwitaQveFa3u865ofSK4ui3Alo5Q/UTre6qXtRmK78Or20LwyTa+4IrWxb6Vrd+F9ab96Lp2EFjd5ptjK9tlWX35IWgMYWCY81eBcfbX4Q4nwKQ8U+5wQmCc/R241fabZN1zSRiE97a8RXCnE2By3I9pDghPzKsOjhOaW3WbNCm9iuHVWHZeD2OnZpZVN3w5Wzu2BuH4khZtw2taQWB5S/Aua9Eg8T/RAmBtayNNdE0r8C1v8fGxx5uRwIqW34VWtgR4ui14l14z/tiSa8YZ75e1AN+yFgAb2sDxx68eZvXhh6IxhEF8U8lcGR6RsygyPPuDyPDsD6Mjsh89VtEk06p3rgmDCA3LuS06IvuNyPDsP0VH5GyrHmS72qqDyMwsa8Lw6jfpyvijEgZxcnHJUniqJVQvKWmweJeUgG9pCcCaa+DEkmadTj5WshLWtQBYdQ14l5b84fgjhYr/ieYng8uaw8klJQBPtoDqx5odtuZ9NtBYwjQc554wCUBG7d1nMi4owsBy0sS3uNmXkSdK4OSjTaG6AYJ6sOZqOPFI8eoTDxV3hJXNIbC4GaCN4w8XtD/5SNPdsKq5oRdY0gwCS5uFTzxcXGjN+2zgv4Ewp4M9o93lDK9+na6MrKBOsOqfc5x4sGlvWF4CvoeLofqh+sX7cDFEkQSPFn/vW1jo9D1c/EFsaTNA0px4sGjh8YUFFfjeG9dH4hx/sPg+a56IbLunmU3Q72I5926G095mee0j45XT97CCZ0a24C6xprGikYS5hMkr47OE8rYsrw+wcdodDK+vsNm7H2Zy3UNSVeshjKDfiBqZXHdHtt3dmxW0SaygT7QJep/c3HJnqp106P8z3OXg0QXaYnltJsvr61jB80pWTteaU3vcDTVxVGReldvFyXDqt+nKyPLa3U2cpVehHorNVmpZi5nIzFGb2gTPLJbXX2B57T2W1z5kee1VltPXsJz75mxHI4OoJx8o3A3LmkH1wiLwLkojC4vAt6gIYHFTiC5pGju+oPDG4wsKpyHRIo8UQ+DBos98i4rzAg8VfRp9tNiwg7reRUV/hqqiy5LzyuTKHIygb2IFdwwLbbNXADZMjdgrjMrACrIJ7i1NclQpOX0yGkMYu73f5Qyn/i3bXl6TB0aIcxy9cdSwBBLTEwY/M7y6guHVp1le952yY5bD+E5wb6lvu5tjV5uyvB4yFrBJfuCilslRuyb0WE5bahMqvmM59XuW12LJfiSE4VUvy2nfspz6nU0o/47ly3am5paRwfL6fFbwhLPtPcCGZa+p63IzX5N4AZZ3H7AJasPO9nzzixyBRYXeEJJjQWEt8S0ohPBDReBbUDAzMLfAdXJ+YXFwUWEktDAex5hbWH58bv48I84xvwD8GN94tBhOzissS86HyenWmRU8Zsg9Hm6vW+I7AcH9bRbXVU22k0BjCIM9luFwaK89arCcPjFZty7CoCRInd5/02eb4Dlmy+3mTrVpwsarV7O8udOx2mVzy0oTemyuuiHH2Bmlls2aX7xjQXaeUeYjyXmxnLosO6+yVl7m5+TvdDD11D8mp68X1bPzp8JjxeCdm19LYgsLoXpO/p8Tut4F+bxvbr4XFhfj9zur5ynNw4sKITCvAD8D2qm+32XEbBJgcru1Znm3H5ldV8FrFwwrEvXdoUxe65BsD3EGhPlXOt3GEKYhYqZzB1lOb5FqNyPDJmjNazdYGsJw2lrjjCyN/XSCowfLqQcT6Rm+rJuZPpUYhh6vRnDUMkacuA7qMpza8DgZhqR9s5X3YGEBeGe7wJckMRw17nd9WqO7yMUG5ub7QvMLAv7ZMvXf73otkS4yLx+Cc/KPIakS+jk56q9ZXvvEdC5NQXktxvDqF4lC1KHzz0xS1qTG4fNImFPDeUW8wtPomA3wXkZGacqBYkMJY+PUzRicq8sHMw2OLjjNlJsjBKe+lkiP02Z8uomLkaeP4fXbbLYulOH1fJvg7m8T3FtZXo/i1Fy7Hk4D372ujtG5+RC8TwHf71IlNjcffLOUVf5ZVPdWyfthcRGcvFeeVD1TvhkeLDR0/LMUgAcK4ORMOeXiFcuVzcA5ulaBTXY/n23v1gwXbPiKC7N0jWDM8Zw2O9nueSGMoAPD60dZTpvEctoolte3m3q1R8d4gw1MttxQwjCc+rtsoeIthtPeYXktbLVtpOfUz1heewvFJnjeYjm15ioKw6nvJvtvEJhXD9Q4kgQcCW1C+esMr/aw/nZaeO+hq2BBPvjulcE3My74/l4ZYI4L4H4X4Gjin0nf9lc5xeAs5Xh4lgJe/B3D2/fQ/0kxWNT/MoZXP7VWfryS/5hRlLooRn2W0z5Op89w6pfY8AnVH5swxrAt6Pen6hoVPjHdyGjo81rKvZ+GEiaB+LY6fRxGKKtzRMBdZ4r/OBrx7n/ZuPRXVTIyMi5NrtsG49jt9qzgveTraJWcctaROHsJ3UshNkuG6hm0hfcusgHmKOCbQSB0D4VIlQzeO6XWyfaYXHdra8UnKjOLV9M+5WjjtZvSzd/Geib31FWEH58w3SGL10ak6ppgOfWwlTSYF8NrX+GUnNBrLGEYpsOVdRNGtZyBnQLDq7VGanMKQ5/0ozbefWuW4LZb050RqqeLw+A+GQJ3SuBPyB0SwEwKMM8F3mnig/5pzi4wK66Dv81WoHq6tMxqi+W1EalzKYpRWeEmOXraB9fwezxgs1ZqnAi3JfTOB2HqCtzVU85Y8ja7sYQ500hvFq8OS7cMwHyR2GZZ9JM2Qd90Vq6deqc6j8BMAr5pIviniRC7m0BguvhSeAbp7ZtM8wLTxH/EZkjG7/ganC5++e+JzqusdrI49S5rRZosV7+uK9CEPRJ7ZrpKSl7HXFCEyS0rteobjSO4Icuu1QTkGk0YUtaE5bW0hKkdP0pG1aUMX/a8uV1O9ilJhJowALCc9oDVQqNwYoqjKDTNGQ5PdUJ4qgjBqaLfe1uesfOJ3W6/3D/Z8UVsugiBKU6AeyTw3e5M+68LGI2sgzBf1DVnxoNsaRuXyVXnJPQuLMKonaz6NYRJ6sGNJQzDVF5ZZ+fhtSlW/WQYHY/TN5/azdVemCf8jMdh5lttNAreCfa5MEOE6GQHBCblnfwq6RqAf0LeRzDVCXCnCIGJjhdSU54Cw6u3Wglj7DQ41Zed3TXHqo/A740oppBuSjpVSRcSYZhcdUjtdZfpf1ZuWc1ZWmMJg6Mww2tfpvO7/hHmFFhe627j9WdZXvebI0rtBXr87nLMmrZRwJEkON7+KUx2QAxJM87+uH+cQwqMs0+JTHLEYpPyIDzJHvDfapetaRNgBLVrOgdxHs3iVM2qj7Bxum5dQCbSYOETehcUYTh1u5UwRl6c+l1W1qlHdRpLGHN6Vr9I57e1jKdDjkOVWMF9O8u73zTbpHaHtKZpNAJj+O5wex6EbhUAJuaB/1YhhK/G56kO8I0R6r31hZWF5yHWApuBrdQtZwIYL7Cu8LEH4KjDcd3ZhN55IYyg35Kqm5GRyXdrbxPcEWsDGGXgtEPJuo0lTH1+1zfCYD4Mp9XxGE1Ghnlg6o5abVr1zgj+0dwWmGiH4C08RMcKxiuMt0PgFv4D6H/6C90Mry7Hw69k52oq1Hx+KHEn5BKWd1elG12MhuXVDcl2zwtheH1MsiaeOrO8/oVVN6FvDR00ljBmXEr9Rzq/s7i6r2jibtJmr/CyvD4Z68n6O4Ll1RPmVHTKplXnjBC7kWdCo7jvY2N4CI7kIDKag9hYHkKj+FrnO+mAR/TmSa61UhNnG9r7LK/tZDntffOztTKxUO4wK5QpyXZ/bMLE/cI7tTuxE+DZjVGGWnrm9Mlw2p/xTm6y5UYTxlyDvG/NA6cUjKcgoaz6CLw6gdvq+Kj4J4bXp2Xm6MW4TWcdOoen2DbBk3IKjjatds4Y/mE54+FWHkI35QK+BoblPGHVqQ9GXMAINqU2WKKycLSxVoop5taPyS1L6dmIH58w8eBX4gpGGnKbOsYVgpiNU2tFVc+MMOoOc4StnQ/ebbHx2iNZ9q5CcposQRuamNZRL5EeYzoMr520ritNgqt/SbbxgwAZGZeGhma/C2M5CA3L/jw2OOu0z1xbwfBlU0xi1J5y0olZUCy0eo/VFiJOmH+mI0EdhEm7eGwMYU4nZvlwPaNen2rTxJkQhhG0Lon7M7XyEzyQk1cJV3FdUx7fYQVtdO0YTPxWgKUOEh2WzVU9yTZ+MHxDbB1gdA4EB9mMW2dnAobTerG8+69mDzUqN155ppg92IxEsoL7U5YvG2C1kUCcMP82bMVPbVFy8nphCD/lKULjxJxTT6TTxeE6WTdOmL+hbiKGUTOqJN3cN0Qwp6TEZSSb4HnbxpVdm2rvFFjefY1NwHKbHSchuMZLvkBlRRanqSzvfiMxWtT4ZaTtDpmW0YzJLWvFCp4PTvntMXxNrWu01QPr2Wtda501BAaw5Q1Z6NYHM7bgHssKblwDfMXyWmKHgfc0vmZ5/ZCN84zD+daaNhVVlxoRVtyGc2WnxF6h1z526P8zvMCVTveqWlcrS3/OcOoHLO95n8WH8jltNMZZWEFbxvL6Wwz6zKlBvFfC8Ho1y+ufsLy+LX4yXe+TixiIM32w+MHpOl6ztOpbgVdMGd4zheH1VQyvPcvw2is23v1mpl1tatU1ysHrlazgfhIPek1fzZGG4TQfK7g/tvHuR+u7IXjBAbfdtjw3zczTi/E1Sz7934uce1RdWldQEYGNjldN0V9cQGa0rP9pxQsEl6CvuNXGvy/JslfgmqfeJxYu4iJ+fFBKO7hc5FqXy1mgKIrAteSuoJQWK4rYXJYl1el0/kohpLcsO9sVEeJwOp25TqdTlGXZ5pKkEpfL5SkqKspVJKlCFEVnQUEBJ4piPqVUxvclJSW/ppRWKoqS8hQgIUSRJCmHEOJQFAeRZRmP5o3hX5blX2JekiSVoI6iKERRpAoXpb1kWS5yuYinqMj0JW4/r2XLllcUFTlz0V5+Pq0sKChgXIR0w3wlSWqGdlwul6QQUu6idACmw7yKioqyMG+Hw/DBhrYURWpDCOltt9svR31Zlil+X1pa+vN8UcxXFOV6QkjN9Jqfny+i/by8PIr5mj66CjAf9AHt55TkGH4m0iiKcnVBgXJDfn5+M0qpjmV0uRySopA+mB/HcVcQQrIJIU2xTFjHDocjU5blwVj/2Fb4fzpGuWR5SLwum7hcrp5oE39HO4n8zhooER9SFKVCkqSxkiTOw8ypJM0jhNwkE7KEEHGiLIuaJDkHUVEcLxNyByVkqUJIHypJt7lkeSZWjkyk3YSQYZIkdaeiOIpK0tOU0hsJcd6kUDpKUZTy5CFToXSBLEs3S5JUEdcdjQ2Cv7lcLlaSpEGEiHMIkR6jlPaUJamH+Z3zBkWhd1NK2xNCyrEyCXH2RvIQQsbIknSzy+UaSCltQYi0vFBR2mK5CBEXI3HRDqV0PFY25oUkkQkZQ6n0hEzIRCpJ4ygVB6JfkuQcQam0Fn8nxHm9zWb7jSxJQ2RZGiyK4uhEWQgh18qETKdUWiZL0mBCyC2yLJcSQiYWGH6KExVFmYp2E2mwc1FKZ2Ono5SsKiigLTFvJBuSVVHoVKxfQsQJVJLWUkoHUlEc7SKkIxHFW2RJGou+Y5mxLkRRHI+/K4pyg8tFOlIq3Ucprfcw84xAqfRAfj7tTKmoo2MyIStlSepHJWkKFloUxUpCnB5CxGGUOjpQStZTSh6SZTKRiiL2jKmKohRSSVrmonQgFpZScQCl0l1UktZIkmMIkoEQMqeqqsoYQZD9CqXLZELup6I4QCakikrSpoRPccKMIEhKKi0jojgtPmq1R3IoijKBENIKKwtHIUqxYo2eeAs2skLpFFmSsLEX4AhjVDbaIeJ0SZJckiSlXF2UCZkry2SRTMg6gg3idA4XRewk0kgqSfOxV6M/itN5NXYKWZb6YePUpJflX8qUbqKUzpNlMgdHbVEU22LdyYJgp1QcryjK+GTCZGRkXCaK4qgCh4OjVHq8oKCgqeR03o6jgkEYSsfHy9UbfSBEXIKdzyVJrSVJupkQMgHzIU7nJOwcSDbJ6RyrUDpOlqRBlDp7YZv+B2e/FlWpRreBAAAAAElFTkSuQmCC";
+
+  let _seAllCandidates  = [];
+  let _seFilter         = "today"; // "today"|"yesterday"|"week"|"all"|"date"
+  let _seCustomDate     = "";
+  let _seTableData      = {}; // { candidateId: { company, totalExp, … } }
+  let _seCardData       = {}; // { jr_number: { to, subject, body } } — persists across modal open/close, cleared on send
+  let _seSigSaved       = false; // true once signature is loaded from DB or saved this session
+  let _seSentJrs        = new Set(); // JR numbers successfully sent this modal session
+
+  function _seFmtDate(d) {
+    return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;
+  }
+
+  async function _seFetchCandidates() {
+    const email = recruiterEl.value.trim();
+    if (!email) return [];
+    const today = new Date();
+    let url = `${SUPABASE_URL}/rest/v1/candidates_submitted`
+      + `?select=id,jr_number,date,skill,candidate_name,email,phone,client_recruiter,client_recruiter_email,upload_to_sap,resume_path,file_name,client_email_sent`
+      + `&recruiter_email=eq.${encodeURIComponent(email)}`
+      + `&upload_to_sap=eq.Succeeded`
+      + `&order=date.desc,created_at.desc`;
+
+    if (_seFilter === "today") {
+      url += `&date=eq.${_seFmtDate(today)}`;
+    } else if (_seFilter === "yesterday") {
+      const y = new Date(today); y.setDate(y.getDate() - 1);
+      url += `&date=eq.${_seFmtDate(y)}`;
+    } else if (_seFilter === "week") {
+      const mon = new Date(today);
+      mon.setDate(today.getDate() - ((today.getDay() + 6) % 7)); // Monday
+      url += `&date=gte.${_seFmtDate(mon)}&date=lte.${_seFmtDate(today)}`;
+    } else if (_seFilter === "date" && _seCustomDate) {
+      url += `&date=eq.${_seCustomDate}`;
+    }
+    const res = await fetch(url, { headers: sbHeaders(), cache: "no-store" });
+    return res.ok ? (await res.json()) : [];
+  }
+
+  function _seRenderCandidateList() {
+    const list = document.getElementById("se-candidate-list");
+    if (!_seAllCandidates.length) {
+      list.innerHTML = `<div style="padding:1rem;text-align:center;color:var(--muted);font-size:13px;">${_seFilter === "today" ? "No uploads found for today." : "No uploads found."}</div>`;
+      _seUpdateRightVisibility();
+      _seRenderEditableTable();
+      return;
+    }
+    list.innerHTML = _seAllCandidates.map((c, i) => {
+      const sent = c.client_email_sent === true || c.client_email_sent === "true";
+      const sentBadge = sent
+        ? `<span style="font-size:10px;background:#bbf7d0;color:#15803d;padding:1px 6px;border-radius:6px;font-weight:600;white-space:nowrap;">✓ Sent</span>`
+        : "";
+      return `
+      <div class="se-cand-row" onclick="this.querySelector('input').click()">
+        <input type="checkbox" class="se-cand-check" data-idx="${i}" ${sent ? "" : "checked"} onclick="event.stopPropagation()"/>
+        <div class="se-cand-info">
+          <div class="se-cand-name" style="display:flex;align-items:center;gap:6px;">${esc(c.candidate_name || "—")} ${sentBadge}</div>
+          <div class="se-cand-meta">JR ${esc(c.jr_number)} · ${esc(c.skill || "")} · ${esc(c.date || "")}</div>
+        </div>
+      </div>`;
+    }).join("");
+    _sePopulateJrFilter();
+    _seUpdateRightVisibility();
+    _seRenderEditableTable();
+  }
+
+  function _sePopulateJrFilter() {
+    const sel = document.getElementById("seJrFilter");
+    if (!sel) return;
+    const current = sel.value;
+    const jrs = [...new Map(_seAllCandidates.map(c => [c.jr_number, c])).values()]
+      .sort((a, b) => (b.jr_number || "").localeCompare(a.jr_number || ""));
+    sel.innerHTML = `<option value="">All JRs</option>`
+      + jrs.map(c => `<option value="${esc(c.jr_number)}">${esc(c.jr_number)} – ${esc(c.skill || c.jr_number)}</option>`).join("");
+    sel.value = current;
+  }
+
+  function _seApplyJrFilter(jrNumber) {
+    const checks = [...document.querySelectorAll(".se-cand-check")];
+    checks.forEach(chk => {
+      const idx = parseInt(chk.dataset.idx, 10);
+      const c   = _seAllCandidates[idx];
+      if (!c) return;
+      const isSentC = c.client_email_sent === true || c.client_email_sent === "true";
+      if (!jrNumber) {
+        chk.checked = !isSentC;
+      } else {
+        chk.checked = (c.jr_number === jrNumber) && !isSentC;
+      }
+    });
+    _seUpdateRightVisibility();
+    _seRenderEditableTable();
+    if (_seIsInternalUser) _seRenderJrCards();
+    _seUpdateSendBtn();
+  }
+
+  let _seIsInternalUser = false;
+
+  function _seUpdateRightVisibility() {
+    const seRight = document.querySelector(".se-right");
+    if (!seRight) return;
+    const selected  = _seGetSelected();
+    // Hide compose panel when nothing is selected OR every selected candidate is already sent
+    const isSent = c => c.client_email_sent === true || c.client_email_sent === "true";
+    const hasUnsent = selected.some(c => !isSent(c) && !_seSentJrs.has(c.jr_number));
+    seRight.style.display = (selected.length && hasUnsent) ? "" : "none";
+  }
+
+  function _seIsSubconJr(jrNumber) {
+    const jr = allJrLookup[(jrNumber || "").toLowerCase()] || jrMaster[jrNumber] || {};
+    return /subcon/i.test(jr.skill_name || "");
+  }
+
+  function _seGroupSelected() {
+    const groups = {};
+    for (const c of _seGetSelected()) {
+      if (!groups[c.jr_number]) groups[c.jr_number] = [];
+      groups[c.jr_number].push(c);
+    }
+    return groups;
+  }
+
+  function _seRenderJrCards() {
+    const container = document.getElementById("seJrCards");
+    if (!container) return;
+    const groups = _seGroupSelected();
+    const entries = Object.entries(groups);
+    if (!entries.length) {
+      container.innerHTML = `<div style="color:var(--muted);font-size:13px;padding:4px 0;">No candidates selected</div>`;
+      return;
+    }
+    // Default shared body from the shared textarea (used when cards first render)
+    const sharedBody = document.getElementById("seBodyInput")?.value || "";
+
+    container.innerHTML = entries.map(([jr, candidates]) => {
+      const skill    = candidates[0].skill || "";
+      const isSubcon = _seIsSubconJr(jr);
+      const sent     = _seSentJrs.has(jr);
+      const saved    = _seCardData[jr] || {};
+      const to       = saved.to      ?? (candidates[0].client_recruiter_email || "");
+      const subject  = saved.subject ?? `BS: ${skill || jr}`;
+      const body     = saved.body    ?? sharedBody;
+      const typeBadge = isSubcon
+        ? `<span style="font-size:10px;background:#dbeafe;color:#1d4ed8;padding:1px 7px;border-radius:8px;font-weight:600;">Subcon</span>`
+        : `<span style="font-size:10px;background:#dcfce7;color:#166534;padding:1px 7px;border-radius:8px;font-weight:600;">Perm/Contract</span>`;
+      const sentBadge = sent
+        ? `<span style="font-size:10px;background:#bbf7d0;color:#15803d;padding:1px 7px;border-radius:8px;font-weight:600;">✓ Sent</span>`
+        : "";
+      const ro = sent ? "readonly style=\"opacity:.55;pointer-events:none;\"" : "";
+      const cardStyle = sent
+        ? "border:1px solid #86efac;border-radius:8px;padding:10px 12px;margin-bottom:8px;background:#f0fdf4;opacity:.85;"
+        : "border:1px solid var(--border);border-radius:8px;padding:10px 12px;margin-bottom:8px;background:var(--surface);";
+      return `<div class="se-jr-card" data-jr="${esc(jr)}" style="${cardStyle}">
+        <div style="display:flex;align-items:center;gap:6px;margin-bottom:8px;">
+          <span style="font-size:12px;font-weight:700;color:var(--primary);">${esc(jr)}</span>
+          ${typeBadge}${sentBadge}
+          <span style="font-size:11px;color:var(--muted);">${esc(skill)}</span>
+          <span style="margin-left:auto;font-size:11px;color:var(--muted);">${candidates.length} candidate${candidates.length > 1 ? "s" : ""}</span>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px;">
+          <div class="se-field" style="margin:0;"><label>To</label>
+            <input type="email" class="se-jr-to" data-jr="${esc(jr)}" value="${esc(to)}" placeholder="client@company.com" ${ro}/></div>
+          <div class="se-field" style="margin:0;"><label>Subject</label>
+            <input type="text" class="se-jr-subject" data-jr="${esc(jr)}" value="${esc(subject)}" ${ro}/></div>
+        </div>
+        <div class="se-field" style="margin:0;"><label>Note / Body</label>
+          <textarea class="se-jr-body" data-jr="${esc(jr)}" rows="2" placeholder="Hi Team,&#10;Please find profiles below.&#10;Regards," ${ro}>${esc(body)}</textarea>
+        </div>
+      </div>`;
+    }).join("");
+  }
+
+  function _seRenderEditableTable() {
+    const container = document.getElementById("seEditTableContainer");
+    const groups    = _seGroupSelected();
+    const entries   = Object.entries(groups);
+    const thS       = `background:#1a5276;`;
+    if (!entries.length) {
+      container.innerHTML = `<div class="se-table-wrap"><table class="se-edit-tbl"><tbody>
+        <tr><td colspan="13" style="text-align:center;color:var(--muted);padding:12px;">Select candidates from the left panel</td></tr>
+      </tbody></table></div>`;
+      return;
+    }
+    // Frozen column widths (px) — JR No., Date, Skill, Candidate Name
+    const FRZ = [
+      { w: 70,  label: "JR No."         },
+      { w: 75,  label: "Date"           },
+      { w: 90,  label: "Skill"          },
+      { w: 130, label: "Candidate Name" },
+    ];
+    const frzLeft = FRZ.reduce((acc, col, i) => { acc.push(i === 0 ? 0 : acc[i-1] + FRZ[i-1].w); return acc; }, []);
+    const frzTh = (i) => `class="se-frozen${i===FRZ.length-1?" se-freeze-end":""}" style="left:${frzLeft[i]}px;min-width:${FRZ[i].w}px;"`;
+    const frzTd = (i, bg) => `class="se-frozen${i===FRZ.length-1?" se-freeze-end":""}" style="left:${frzLeft[i]}px;min-width:${FRZ[i].w}px;background:${bg};"`;
+
+    container.innerHTML = entries.map(([jr, candidates]) => {
+      const isSubcon   = _seIsSubconJr(jr);
+      const editCols   = isSubcon
+        ? ["Current Company","Total Exp","Relevant Exp","Billing Rate","Notice Period","Current Location","Preferred Location"]
+        : ["Current Company","Total Experience","Relevant Experience","Current CTC","Expected CTC","Notice Period","Current Location","Preferred Location","comments/Availability"];
+      const thead = `<thead><tr>
+        ${FRZ.map((col, i) => `<th ${frzTh(i)}>${col.label}</th>`).join("")}
+        <th style="min-width:110px;">Contact Number</th>
+        <th style="min-width:130px;">Email ID</th>
+        ${editCols.map(h => `<th style="${thS}min-width:110px;">${h} <span style="color:#f87171;font-size:10px;">*</span></th>`).join("")}
+      </tr></thead>`;
+      const rows = candidates.map((c, i) => {
+        const rowBg = i % 2 === 0 ? "#fff" : "#f8fafc";
+        const d  = _seTableData[c.id] || {};
+        const ro = v => `<span class="se-edit-ro">${esc(v||"")}</span>`;
+        const ed = (key, ph) => `<input class="se-edit-input" data-id="${c.id}" data-key="${key}" value="${esc(d[key]||"")}" placeholder="${ph}" />`;
+        const cells = isSubcon
+          ? `<td style="background:#eaf4fb;">${ed("company","Company")}</td>
+             <td style="background:#eaf4fb;">${ed("totalExp","5 yrs")}</td>
+             <td style="background:#eaf4fb;">${ed("relevantExp","3 yrs")}</td>
+             <td style="background:#eaf4fb;">${ed("billingRate","$50/hr")}</td>
+             <td style="background:#eaf4fb;">${ed("noticePeriod","30 days")}</td>
+             <td style="background:#eaf4fb;">${ed("currentLoc","City")}</td>
+             <td style="background:#eaf4fb;">${ed("preferredLoc","City")}</td>`
+          : `<td style="background:#eaf4fb;">${ed("company","Company")}</td>
+             <td style="background:#eaf4fb;">${ed("totalExp","5 yrs")}</td>
+             <td style="background:#eaf4fb;">${ed("relevantExp","3 yrs")}</td>
+             <td style="background:#eaf4fb;">${ed("currentCtc","10 LPA")}</td>
+             <td style="background:#eaf4fb;">${ed("expectedCtc","12 LPA")}</td>
+             <td style="background:#eaf4fb;">${ed("noticePeriod","30 days")}</td>
+             <td style="background:#eaf4fb;">${ed("currentLoc","City")}</td>
+             <td style="background:#eaf4fb;">${ed("preferredLoc","City")}</td>
+             <td style="background:#eaf4fb;">${ed("comments","Availability")}</td>`;
+        return `<tr style="background:${rowBg};">
+          <td ${frzTd(0,rowBg)}>${ro(c.jr_number)}</td>
+          <td ${frzTd(1,rowBg)}>${ro(c.date)}</td>
+          <td ${frzTd(2,rowBg)}>${ro(c.skill)}</td>
+          <td ${frzTd(3,rowBg)}>${ro(c.candidate_name)}</td>
+          <td>${ro(c.phone)}</td><td>${ro(c.email)}</td>
+          ${cells}
+        </tr>`;
+      }).join("");
+      const label = entries.length > 1
+        ? `<div style="font-size:11px;font-weight:700;color:var(--primary);margin:8px 0 3px;">${esc(jr)} · ${esc(candidates[0].skill||"")}</div>`
+        : "";
+      return `${label}<div class="se-table-wrap" style="${entries.length>1?"margin-bottom:12px;":""}">
+        <table class="se-edit-tbl">${thead}<tbody>${rows}</tbody></table></div>`;
+    }).join("");
+  }
+
+  function _seGetSelected() {
+    return [...document.querySelectorAll(".se-cand-check:checked")]
+      .map(cb => _seAllCandidates[parseInt(cb.dataset.idx)]);
+  }
+
+  function _seSignatureHtmlExternal(name, title, phone, email) {
+    return `<table border="0" cellspacing="0" cellpadding="0" style="border-collapse:collapse;font-family:Arial,sans-serif;font-size:13px;color:#333;">
+  <tr><td style="padding:4px 0;">
+    <p style="margin:0 0 2px;font-size:15px;font-weight:700;color:#000;font-family:'Aptos Narrow',Arial,sans-serif;">${esc(name)}</p>
+    <p style="margin:0 0 6px;font-size:12px;color:#444;">${esc(title)}</p>
+    <p style="margin:0;font-size:12px;color:#636363;font-weight:700;">
+      ${phone ? `<a href="tel:${(phone||"").replace(/\s/g,"")}" style="color:#0563C1;text-decoration:none;">${esc(phone)}</a> &nbsp;|&nbsp; ` : ""}
+      <a href="mailto:${esc(email)}" style="color:blue;text-decoration:underline;">${esc(email)}</a>
+    </p>
+  </td></tr>
+</table>`;
+  }
+
+  function _seSignatureHtml(name, title, phone, email) {
+    const si = (href, label, bg) =>
+      `<a href="${href}" style="display:inline-block;width:22px;height:22px;background:${bg};border-radius:4px;text-align:center;line-height:22px;font-family:Arial,sans-serif;font-size:10px;font-weight:bold;color:#fff;text-decoration:none;margin:0 1px;">${label}</a>`;
+    const icons = [
+      si("https://www.linkedin.com/company/volibits/",                          "in",  "#0A66C2"),
+      si("https://www.instagram.com/volibits_llp/",                             "IG",  "#E1306C"),
+      si("https://www.facebook.com/Volibits/",                                  "f",   "#1877F2"),
+      si("https://x.com/VolibitsInd",                                           "&#120143;", "#000"),
+      si("https://www.youtube.com/channel/UCmSl5A2JfguK3PtcUdiI8-A",           "&#9654;", "#FF0000"),
+    ].join("");
+    return `<table border="0" cellspacing="0" cellpadding="0" style="border-collapse:collapse;font-family:Arial,sans-serif;font-size:13px;color:#333;">
+  <tr>
+    <td valign="middle" align="center" style="padding:8px 14px 8px 8px;border-right:1.5px solid #595959;width:160px;">
+      <a href="http://www.volibits.com/" style="text-decoration:none;display:block;margin-bottom:6px;">
+        <img src="${VOLIBITS_LOGO}" width="140" height="45" alt="Volibits" style="display:block;border:0;margin:0 auto;">
+      </a>
+      <div style="font-size:8.5px;color:#5d5d5d;font-weight:700;margin-bottom:6px;letter-spacing:0.3px;">Connect with us</div>
+      <div style="text-align:center;line-height:1;">${icons}</div>
+    </td>
+    <td valign="top" style="padding:8px 8px 8px 16px;">
+      <p style="margin:0 0 2px;font-size:15px;font-weight:700;color:#000;font-family:'Aptos Narrow',Arial,sans-serif;">${esc(name)}</p>
+      <p style="margin:0 0 10px;font-size:12px;color:#444;">${esc(title)}</p>
+      <p style="margin:0 0 3px;font-size:12px;color:#636363;font-weight:700;">
+        <a href="tel:${(phone||"").replace(/\s/g,"")}" style="color:#0563C1;text-decoration:none;">${esc(phone)}</a>
+        &nbsp;|&nbsp;
+        <a href="mailto:${esc(email)}" style="color:blue;text-decoration:underline;">${esc(email)}</a>
+      </p>
+      <p style="margin:0 0 3px;font-size:12px;font-weight:700;">
+        <a href="http://www.volibits.com/" style="color:#0058B9;text-decoration:underline;">www.volibits.com</a>
+      </p>
+      <p style="margin:0;font-size:12px;color:#636363;font-weight:700;">
+        203, A Wing, The Capital, Baner-Pashan Link Rd, Baner, Pune, MH, India - 411045
+      </p>
+    </td>
+  </tr>
+</table>`;
+  }
+
+  function _seCollectTableInputs() {
+    document.querySelectorAll(".se-edit-input").forEach(input => {
+      const id  = input.dataset.id;
+      const key = input.dataset.key;
+      if (!_seTableData[id]) _seTableData[id] = {};
+      _seTableData[id][key] = input.value.trim();
+    });
+  }
+
+  function _seBuildEmailHtml(candidates, bodyText, sigName, sigTitle, sigPhone, senderEmail, isSubcon = false) {
+    const td = (v, bg) => `<td style="padding:7px 10px;border:1px solid #e2e8f0;${bg?"background:"+bg+";":""}font-size:12px;">${esc(v||"")}&nbsp;</td>`;
+    const rows = candidates.map((c, i) => {
+      const d = _seTableData[c.id] || {};
+      const editCells = isSubcon
+        ? `${td(d.company,"#eaf4fb")}${td(d.totalExp,"#eaf4fb")}${td(d.relevantExp,"#eaf4fb")}
+           ${td(d.billingRate,"#eaf4fb")}${td(d.noticePeriod,"#eaf4fb")}
+           ${td(d.currentLoc,"#eaf4fb")}${td(d.preferredLoc,"#eaf4fb")}`
+        : `${td(d.company,"#eaf4fb")}${td(d.totalExp,"#eaf4fb")}${td(d.relevantExp,"#eaf4fb")}
+           ${td(d.currentCtc,"#eaf4fb")}${td(d.expectedCtc,"#eaf4fb")}${td(d.noticePeriod,"#eaf4fb")}
+           ${td(d.currentLoc,"#eaf4fb")}${td(d.preferredLoc,"#eaf4fb")}${td(d.comments,"#eaf4fb")}`;
+      return `<tr style="background:${i%2===0?"#fff":"#f8fafc"};">
+        ${td(c.jr_number)}${td(c.date)}${td(c.skill)}${td(c.candidate_name)}
+        ${td(c.phone)}${td(c.email)}
+        ${editCells}
+      </tr>`;
+    }).join("");
+
+    const thStyle = "padding:8px 10px;color:#fff;text-align:left;font-weight:600;white-space:nowrap;border:1px solid #1a6fd4;";
+    const ths = (cols) => cols.map(h => `<th style="${thStyle}">${h}</th>`).join("");
+    const fixedCols = ["JR No.","Date","Skill","Candidate Name","Contact Number","Email ID"];
+    const editCols  = isSubcon
+      ? ["Current Company","Total Experience","Relevant Experience","Billing Rate","Notice Period","Current Location","Preferred Location"]
+      : ["Current Company","Total Experience","Relevant Experience","Current CTC","Expected CTC","Notice Period","Current Location","Preferred Location","comments/Availability"];
+    const table = `<div style="overflow-x:auto;"><table border="0" cellspacing="0" cellpadding="0" style="border-collapse:collapse;font-size:12px;font-family:'Segoe UI',Arial,sans-serif;min-width:600px;">
+      <thead><tr style="background:#0078d4;">${ths([...fixedCols, ...editCols])}</tr></thead>
+      <tbody>${rows}</tbody>
+    </table></div>`;
+
+    const bodyHtml = bodyText.split("\n").map(l => `<p style="margin:0 0 6px;font-family:'Segoe UI',Arial,sans-serif;font-size:14px;color:#333;">${esc(l) || "&nbsp;"}</p>`).join("");
+    const isInt = ALLOWED_DOMAINS.some(d => senderEmail.toLowerCase().endsWith("@" + d));
+    const sig = isInt
+      ? _seSignatureHtml(sigName || senderEmail, sigTitle || "Recruitment Consultant", sigPhone || "", senderEmail)
+      : _seSignatureHtmlExternal(sigName || senderEmail, sigTitle || "Recruitment Consultant", sigPhone || "", senderEmail);
+
+    return `<div style="font-family:'Segoe UI',Arial,sans-serif;font-size:14px;color:#333;max-width:1000px;">
+      ${bodyHtml}<br>
+      ${table}<br><br>
+      ${sig}
+    </div>`;
+  }
+
+  async function _seLoadSignature(email) {
+    if (!email) return;
+    document.getElementById("seSigStatus").textContent = "Loading…";
+    try {
+      // select=* works even before the new columns exist; unknown cols just won't appear
+      const res = await fetch(
+        `${SUPABASE_URL}/rest/v1/recruiter_signatures?user_email=eq.${encodeURIComponent(email)}&select=*`,
+        { headers: sbHeaders() }
+      );
+      if (res.ok) {
+        const data = await res.json();
+        if (data.length) {
+          document.getElementById("seSigName").value  = data[0].sig_name      || "";
+          document.getElementById("seSigTitle").value = data[0].sig_job_title || "";
+          document.getElementById("seSigPhone").value = data[0].sig_phone     || "";
+          document.getElementById("seSigStatus").textContent = "✓ Signature loaded";
+          _seSigSaved = true;
+          _seShowSigPreview(data[0].sig_name || "", data[0].sig_job_title || "", data[0].sig_phone || "", email);
+          return;
+        }
+      }
+    } catch (e) { console.warn("Could not load signature:", e); }
+    // Derive name from email as fallback
+    const namePart = email.split("@")[0].replace(/[._]/g," ").replace(/\b\w/g, c => c.toUpperCase());
+    document.getElementById("seSigName").value  = namePart;
+    document.getElementById("seSigTitle").value = "";
+    document.getElementById("seSigPhone").value = "";
+    document.getElementById("seSigStatus").textContent = "No saved signature — fill in and save";
+  }
+
+  function _seShowSigPreview(name, title, phone, email) {
+    const preview = document.getElementById("seSigPreview");
+    if (!name && !title && !phone) { preview.style.display = "none"; return; }
+    preview.style.display = "block";
+    const isInt = ALLOWED_DOMAINS.some(d => email.toLowerCase().endsWith("@" + d));
+    preview.innerHTML = isInt
+      ? _seSignatureHtml(name || email, title || "Recruitment Consultant", phone || "", email)
+      : _seSignatureHtmlExternal(name || email, title || "Recruitment Consultant", phone || "", email);
+  }
+
+  async function _seSaveSignature(email, name, title, phone) {
+    if (!email) return;
+    const sigHtml = _seSignatureHtml(name || email, title || "Recruitment Consultant", phone || "", email);
+    try {
+      await fetch(`${SUPABASE_URL}/rest/v1/recruiter_signatures?on_conflict=user_email`, {
+        method: "POST",
+        headers: { ...sbHeaders(), "Prefer": "resolution=merge-duplicates" },
+        body: JSON.stringify({
+          user_email:    email,
+          sig_name:      name,
+          sig_job_title: title,
+          sig_phone:     phone,
+          signature:     sigHtml,
+          updated_at:    new Date().toISOString(),
+        }),
+      });
+    } catch (e) { console.warn("Could not save signature:", e); }
+  }
+
+  async function _seOpen() {
+    document.getElementById("se-overlay").classList.add("open");
+    document.getElementById("se-candidate-list").innerHTML =
+      `<div style="padding:1rem;text-align:center;color:var(--muted);font-size:13px;">Loading…</div>`;
+
+    const senderEmail  = recruiterEl.value.trim();
+    const senderDomain = (senderEmail.toLowerCase().split("@")[1] || "");
+    _seIsInternalUser  = ALLOWED_DOMAINS.includes(senderDomain);
+
+    // Show the correct top section
+    const vendorFields    = document.getElementById("seVendorFields");
+    const jrCardsDiv      = document.getElementById("seJrCards");
+    const sharedBodyWrap  = document.getElementById("seSharedBodyWrap");
+    if (_seIsInternalUser) {
+      if (vendorFields)   vendorFields.style.display   = "none";
+      if (jrCardsDiv)     jrCardsDiv.style.display     = "";
+      if (sharedBodyWrap) sharedBodyWrap.style.display = "none";
+    } else {
+      if (vendorFields)   vendorFields.style.display   = "";
+      if (jrCardsDiv)     jrCardsDiv.style.display     = "none";
+      if (sharedBodyWrap) sharedBodyWrap.style.display = "";
+      document.getElementById("seToInput").value = `manoj.nair@volibits.com, ${senderEmail}`;
+    }
+
+    if (!document.getElementById("seCcInput").value)
+      document.getElementById("seCcInput").value = _seIsInternalUser ? "rec_team@volibits.com" : "";
+
+    const jr           = jrMaster[jrSelect.value];
+    const skill        = jr?.skill_name || "";
+    const recruiterName = (jr?.client_recruiter || "Team").split(" ")[0];
+    if (!document.getElementById("seBodyInput").value)
+      document.getElementById("seBodyInput").value =
+        `Hi ${recruiterName},\n\nPlease find the profiles for ${skill || "the position"} below.\n\nRegards,`;
+
+    await _seLoadSignature(senderEmail);
+
+    const seJrFilter = document.getElementById("seJrFilter");
+    if (seJrFilter) seJrFilter.value = "";
+    _seAllCandidates = await _seFetchCandidates();
+    // Re-derive sent state fresh from DB on every open
+    _seSentJrs.clear();
+    const _jrGroups = {};
+    for (const c of _seAllCandidates) {
+      if (!_jrGroups[c.jr_number]) _jrGroups[c.jr_number] = [];
+      _jrGroups[c.jr_number].push(c);
+    }
+    for (const [jr, cands] of Object.entries(_jrGroups)) {
+      if (cands.every(c => c.client_email_sent === true || c.client_email_sent === "true")) _seSentJrs.add(jr);
+    }
+    _seRenderCandidateList();
+    if (_seIsInternalUser) _seRenderJrCards();
+  }
+
+  function _seClose() {
+    _seSentJrs.clear();
+    document.getElementById("se-overlay").classList.remove("open");
+  }
+
+  function _seValidateTableData(candidates, isSubcon) {
+    const required = isSubcon
+      ? ["company","totalExp","relevantExp","billingRate","noticePeriod","currentLoc","preferredLoc"]
+      : ["company","totalExp","relevantExp","currentCtc","expectedCtc","noticePeriod","currentLoc","preferredLoc","comments"];
+    const labels = {
+      company:"Current Company", totalExp:"Total Experience", relevantExp:"Relevant Experience",
+      billingRate:"Billing Rate", currentCtc:"Current CTC", expectedCtc:"Expected CTC",
+      noticePeriod:"Notice Period", currentLoc:"Current Location", preferredLoc:"Preferred Location",
+      comments:"comments/Availability",
+    };
+    for (const c of candidates) {
+      const d = _seTableData[c.id] || {};
+      const missing = required.filter(k => !(d[k] || "").trim());
+      if (missing.length) {
+        // Highlight the empty inputs visually
+        missing.forEach(k => {
+          const inp = document.querySelector(`.se-edit-input[data-id="${c.id}"][data-key="${k}"]`);
+          if (inp) { inp.style.borderColor = "var(--error, #dc2626)"; inp.addEventListener("input", () => inp.style.borderColor = "", { once: true }); }
+        });
+        return `${c.candidate_name}: missing ${missing.map(k => labels[k]).join(", ")}`;
+      }
+    }
+    return null;
+  }
+
+  async function _seMarkSent(candidates) {
+    const ids = candidates.map(c => c.id).filter(Boolean);
+    if (!ids.length) return;
+    try {
+      await fetch(
+        `${SUPABASE_URL}/rest/v1/candidates_submitted?id=in.(${ids.join(",")})`,
+        {
+          method: "PATCH",
+          headers: { ...sbHeaders(), "Prefer": "return=minimal" },
+          body: JSON.stringify({ client_email_sent: true }),
+        }
+      );
+      // Update local cache so the list re-renders correctly
+      ids.forEach(id => {
+        const c = _seAllCandidates.find(x => x.id === id);
+        if (c) c.client_email_sent = true;
+      });
+    } catch (e) { console.warn("Could not mark candidates as sent:", e); }
+  }
+
+  function _seUpdateSendBtn() {
+    const btn = document.getElementById("seSendBtn");
+    if (!btn) return;
+    const groups  = _seGroupSelected();
+    const pending = Object.keys(groups).filter(jr => !_seSentJrs.has(jr));
+    const allSent = Object.keys(groups).length > 0 && pending.length === 0;
+    btn.disabled    = allSent;
+    btn.textContent = allSent ? "✓ All Sent" : "📧 Send Email";
+  }
+
+  async function _fetchResumes(candidates) {
+    const attachments = [];
+    for (const c of candidates) {
+      if (!c.resume_path) continue;
+      try {
+        const rRes = await fetch(`${SUPABASE_URL}/storage/v1/object/resumes/${c.resume_path}`,
+          { headers: { "Authorization": `Bearer ${SUPABASE_KEY}` } });
+        if (!rRes.ok) continue;
+        const bytes = new Uint8Array(await rRes.arrayBuffer());
+        let bin = "";
+        for (let i = 0; i < bytes.length; i += 8192)
+          bin += String.fromCharCode(...bytes.subarray(i, i + 8192));
+        attachments.push({ name: c.file_name || c.resume_path.split("/").pop(), contentBytes: btoa(bin) });
+      } catch (e) { console.warn("Resume fetch failed:", c.candidate_name, e); }
+    }
+    return attachments;
+  }
+
+  async function _seSend() {
+    const selected    = _seGetSelected();
+    const senderEmail = recruiterEl.value.trim();
+    if (!selected.length) { toast("Select at least one candidate to include.", "err"); return; }
+
+    const cc       = document.getElementById("seCcInput").value.trim();
+    const body     = document.getElementById("seBodyInput").value.trim();
+    const sigName  = document.getElementById("seSigName").value.trim();
+    const sigTitle = document.getElementById("seSigTitle").value.trim();
+    const sigPhone = document.getElementById("seSigPhone").value.trim();
+    const ccList   = cc ? cc.split(",").map(e => e.trim()).filter(Boolean) : [];
+
+    _seCollectTableInputs();
+
+    const btn = document.getElementById("seSendBtn");
+    btn.disabled = true;
+
+    try {
+      if (_seIsInternalUser) {
+        // ── Signature gate (one-time) ───────────────────────────────────────
+        if (!_seSigSaved) {
+          toast("Please save your signature before sending. Open the signature panel and click 💾 Save Signature.", "err", 6000);
+          // Open the signature collapsible so the user sees it
+          const sigToggle = document.getElementById("seSigToggle");
+          if (sigToggle && !sigToggle.nextElementSibling?.classList.contains("open"))
+            sigToggle.click();
+          btn.disabled = false; btn.textContent = "📧 Send Email"; return;
+        }
+
+        // ── Internal: one email per JR group ───────────────────────────────
+        const groups  = _seGroupSelected();
+        const entries = Object.entries(groups);
+
+        // Validate To fields and required table columns
+        for (const [jr, candidates] of entries) {
+          const toVal = document.querySelector(`.se-jr-to[data-jr="${jr}"]`)?.value.trim();
+          if (!toVal) {
+            toast(`Please enter a To address for ${jr}`, "err");
+            btn.disabled = false; btn.textContent = "📧 Send Email"; return;
+          }
+          const tableErr = _seValidateTableData(candidates, _seIsSubconJr(jr));
+          if (tableErr) {
+            toast(`Fill all required columns — ${tableErr}`, "err", 6000);
+            btn.disabled = false; btn.textContent = "📧 Send Email"; return;
+          }
+        }
+
+        await _seSaveSignature(senderEmail, sigName, sigTitle, sigPhone);
+
+        const succeeded = [], failed = [];
+        const pending = entries.filter(([jr]) => !_seSentJrs.has(jr));
+
+        for (const [jr, candidates] of pending) {
+          const to      = document.querySelector(`.se-jr-to[data-jr="${jr}"]`).value.trim();
+          const subject = document.querySelector(`.se-jr-subject[data-jr="${jr}"]`)?.value.trim() || `BS: ${candidates[0]?.skill || jr}`;
+          const jrBody  = document.querySelector(`.se-jr-body[data-jr="${jr}"]`)?.value.trim() || body;
+          const isSubcon = _seIsSubconJr(jr);
+
+          btn.textContent = `Fetching resumes for ${jr}…`;
+          const attachments = await _fetchResumes(candidates);
+
+          btn.textContent = `Sending ${jr}…`;
+          const htmlBody = _seBuildEmailHtml(candidates, jrBody, sigName, sigTitle, sigPhone, senderEmail, isSubcon);
+          try {
+            const res = await fetch(`${SUPABASE_URL}/functions/v1/send-auth-email`, {
+              method: "POST",
+              headers: { "Authorization": `Bearer ${SUPABASE_KEY}`, "Content-Type": "application/json" },
+              body: JSON.stringify({
+                type: "client-email", sender_email: senderEmail,
+                sender_name: sigName || senderEmail.split("@")[0],
+                to: to.split(",").map(e => e.trim()).filter(Boolean),
+                cc: ccList, subject, html_body: htmlBody, attachments,
+              }),
+            });
+            if (!res.ok) throw new Error((await res.json()).error || res.status);
+            _seSentJrs.add(jr);
+            succeeded.push(jr);
+            await _seMarkSent(candidates);
+          } catch (e) { failed.push(`${jr} (${e.message})`); }
+        }
+
+        // Refresh cards to show ✓ Sent badges, update button state
+        _seRenderJrCards();
+        _seUpdateSendBtn();
+
+        if (succeeded.length) toast(`Sent ${succeeded.length} email${succeeded.length>1?"s":""}: ${succeeded.join(", ")}`, "ok");
+        if (failed.length)    toast(`Failed: ${failed.join(", ")}`, "err", 7000);
+
+        // Close only when everything is sent (no failures)
+        const allDone = entries.every(([jr]) => _seSentJrs.has(jr));
+        if (allDone) { _seCardData = {}; _seSentJrs.clear(); _seClose(); document.getElementById("seBodyInput").value = ""; }
+
+      } else {
+        // ── Vendor: single combined email ───────────────────────────────────
+        await _seSaveSignature(senderEmail, sigName, sigTitle, sigPhone);
+        const to = document.getElementById("seToInput").value.trim();
+        if (!to) { toast("Please enter a recipient email address.", "err"); btn.disabled = false; btn.textContent = "📧 Send Email"; return; }
+
+        // Auto-fill subject from selected candidates' skills
+        const uniqueSkills = [...new Set(selected.map(c => c.skill).filter(Boolean))];
+        const subject = document.getElementById("seSubjectInput").value.trim()
+          || `[Vendor submission]: ${uniqueSkills.join(", ") || "Candidate Profiles"}`;
+
+        // Use non-subcon format if any non-subcon candidate is selected
+        const isSubcon = selected.every(c => _seIsSubconJr(c.jr_number));
+
+        btn.textContent = "Fetching resumes…";
+        const attachments = await _fetchResumes(selected);
+        btn.textContent = "Sending…";
+        const htmlBody = _seBuildEmailHtml(selected, body, sigName, sigTitle, sigPhone, senderEmail, isSubcon);
+
+        const res = await fetch(`${SUPABASE_URL}/functions/v1/send-auth-email`, {
+          method: "POST",
+          headers: { "Authorization": `Bearer ${SUPABASE_KEY}`, "Content-Type": "application/json" },
+          body: JSON.stringify({
+            type: "client-email", sender_email: senderEmail,
+            sender_name: sigName || senderEmail.split("@")[0],
+            to: to.split(",").map(e => e.trim()).filter(Boolean),
+            cc: ccList, subject, html_body: htmlBody, attachments,
+          }),
+        });
+        if (!res.ok) throw new Error((await res.json()).error || res.status);
+        toast(`Email sent to ${to}`, "ok");
+        await _seMarkSent(selected);
+        _seCardData = {};
+        _seClose();
+        document.getElementById("seToInput").value      = "";
+        document.getElementById("seSubjectInput").value = "";
+        document.getElementById("seBodyInput").value    = "";
+      }
+    } catch (e) {
+      toast(`Failed to send: ${e.message}`, "err", 7000);
+    } finally {
+      btn.disabled = false; btn.textContent = "📧 Send Email";
+    }
+  }
+
+  document.getElementById("seSaveSigBtn").addEventListener("click", async () => {
+    const email = recruiterEl.value.trim();
+    const name  = document.getElementById("seSigName").value.trim();
+    const title = document.getElementById("seSigTitle").value.trim();
+    const phone = document.getElementById("seSigPhone").value.trim();
+    const btn   = document.getElementById("seSaveSigBtn");
+    btn.disabled = true; btn.textContent = "Saving…";
+    await _seSaveSignature(email, name, title, phone);
+    document.getElementById("seSigStatus").textContent = "✓ Signature saved";
+    _seSigSaved = true;
+    _seShowSigPreview(name, title, phone, email);
+    btn.disabled = false; btn.textContent = "💾 Save Signature";
+    toast("Signature saved", "ok");
+  });
+
+  // Wire up modal
+  document.getElementById("openSendEmailBtn").addEventListener("click", _seOpen);
+  document.getElementById("adminSendEmailBtn").addEventListener("click", _seOpen);
+  document.getElementById("userSendEmailBtn").addEventListener("click", _seOpen);
+  document.getElementById("seCloseBtn").addEventListener("click", _seClose);
+  document.getElementById("seCancelBtn").addEventListener("click", _seClose);
+  document.getElementById("seSendBtn").addEventListener("click", _seSend);
+  document.getElementById("se-overlay").addEventListener("click", e => {
+    if (e.target === document.getElementById("se-overlay")) _seClose();
+  });
+  document.getElementById("seSelAll").addEventListener("click", () => {
+    const checks = [...document.querySelectorAll(".se-cand-check")];
+    const allChecked = checks.every(c => c.checked);
+    checks.forEach(c => c.checked = !allChecked);
+    document.getElementById("seSelAll").textContent = allChecked ? "Select all" : "Deselect all";
+  });
+  async function _seApplyFilter(filter, customDate) {
+    _seFilter     = filter;
+    _seCustomDate = customDate || "";
+    const btns = ["seFilterToday","seFilterYesterday","seFilterWeek","seFilterAll"];
+    btns.forEach(id => document.getElementById(id)?.classList.remove("active"));
+    const dateInput = document.getElementById("seFilterDate");
+    if (filter === "date") {
+      dateInput.style.outline = "2px solid var(--accent)";
+    } else {
+      dateInput.style.outline = "";
+      const map = { today:"seFilterToday", yesterday:"seFilterYesterday", week:"seFilterWeek", all:"seFilterAll" };
+      if (map[filter]) document.getElementById(map[filter]).classList.add("active");
+    }
+    document.getElementById("se-candidate-list").innerHTML =
+      `<div style="padding:1rem;text-align:center;color:var(--muted);font-size:13px;">Loading…</div>`;
+    _seAllCandidates = await _seFetchCandidates();
+    _seRenderCandidateList();
+  }
+
+  ["seFilterToday","seFilterYesterday","seFilterWeek","seFilterAll"].forEach(id => {
+    document.getElementById(id).addEventListener("click", () => {
+      _seApplyFilter(document.getElementById(id).dataset.filter);
+    });
+  });
+  document.getElementById("seFilterDate").addEventListener("change", e => {
+    if (e.target.value) _seApplyFilter("date", e.target.value);
+  });
+  document.getElementById("seJrFilter").addEventListener("change", e => {
+    _seApplyJrFilter(e.target.value);
+  });
+
+  // Collapsible signature toggle
+  document.getElementById("seSigToggle").addEventListener("click", () => {
+    const content = document.getElementById("seSigContent");
+    const btn     = document.getElementById("seSigToggle");
+    content.classList.toggle("open");
+    btn.classList.toggle("open");
+  });
+
+  // Save editable table inputs to _seTableData as user types
+  document.getElementById("seEditTableContainer").addEventListener("input", e => {
+    const input = e.target.closest(".se-edit-input");
+    if (!input) return;
+    const id  = input.dataset.id;
+    const key = input.dataset.key;
+    if (!_seTableData[id]) _seTableData[id] = {};
+    _seTableData[id][key] = input.value;
+  });
+
+  // Save per-JR card fields to _seCardData as user types (persists across close/reopen)
+  document.getElementById("seJrCards").addEventListener("input", e => {
+    const el = e.target;
+    const jr = el.dataset.jr;
+    if (!jr) return;
+    if (!_seCardData[jr]) _seCardData[jr] = {};
+    if (el.classList.contains("se-jr-to"))      _seCardData[jr].to      = el.value;
+    if (el.classList.contains("se-jr-subject")) _seCardData[jr].subject = el.value;
+    if (el.classList.contains("se-jr-body"))    _seCardData[jr].body    = el.value;
+  });
+
+  // Re-render editable table (and JR cards for internal users) when checkboxes change
+  document.getElementById("se-candidate-list").addEventListener("change", e => {
+    if (e.target.classList.contains("se-cand-check")) {
+      _seUpdateRightVisibility();
+      _seRenderEditableTable();
+      if (_seIsInternalUser) { _seRenderJrCards(); _seUpdateSendBtn(); }
+    }
+  });
 </script>
 
 <!-- First-time tour elements -->
@@ -3311,7 +4437,7 @@ F. If text is garbled, watermarked, or name is unclear → output empty lines.${
     {
       target: "recruiterEmail",
       title:  "Recruiter Email",
-      desc:   "This fills automatically when you pick a JR. You can also type or edit the email manually.",
+      desc:   "This is automatically set to your login email and cannot be changed.",
       arrow:  "top",
       align:  "left",
     },
@@ -3331,8 +4457,8 @@ F. If text is garbled, watermarked, or name is unclear → output empty lines.${
     },
     {
       target: "submitBtn",
-      title:  "Submit to SAP",
-      desc:   "After parsing, click here to submit all candidates directly to SAP SuccessFactors.",
+      title:  "Submit to Client Portal",
+      desc:   "After parsing, click here to submit all candidates directly to the Client Portal.",
       arrow:  "top",
       align:  "left",
     },
@@ -3340,6 +4466,13 @@ F. If text is garbled, watermarked, or name is unclear → output empty lines.${
       target: "chatToggleWrap",
       title:  "Chat Support",
       desc:   "Got a question or hit an error? Click here to chat with our support team anytime.",
+      arrow:  "right",
+      align:  "right",
+    },
+    {
+      target: "user-sidebar",
+      title:  "Send Candidate Profiles",
+      desc:   "After uploading, click 📧 Send here to email selected candidate profiles directly to the client recruiter — with the tracker table and your signature automatically included.",
       arrow:  "right",
       align:  "right",
     },
