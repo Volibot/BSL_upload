@@ -14,6 +14,7 @@ class SAPBot:
         self.run_started_at    = time.strftime("%Y%m%d_%H%M%S")
         self.screenshot_dir    = Path.cwd() / "screenshots" / self.run_started_at
         self.screenshot_counter = 0
+        self.last_screenshot_path: Path | None = None
 
     # =========================
     # SETUP & LOGIN
@@ -236,6 +237,7 @@ class SAPBot:
             except Exception:
                 pass
         print(f"Screenshot saved: {path}")
+        self.last_screenshot_path = path
         return path
 
     def _details_panel_state(self, req_id=None):

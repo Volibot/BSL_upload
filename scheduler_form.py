@@ -315,6 +315,11 @@ def _process_chunk(records: list, submit_to_sap: bool) -> tuple[dict, dict]:
                     sap_screen_error = sap_error.split("|", 1)[1] if "|" in sap_error else ""
                     sap_status = _classify_dup_status(sap_screen_error or sap_error)
                     log.warning(f"     ⚠ Candidate exists ({sap_status}): {cand_label}")
+                    if not screenshot_captured and bot:
+                        p = getattr(bot, "last_screenshot_path", None)
+                        if p and p.exists():
+                            failed_screenshots.append({"name": p.name, "content": p.read_bytes()})
+                            screenshot_captured = True
                     break
 
                 if any(err in sap_error.lower() for err in NON_CRITICAL_SAP_ERRORS):

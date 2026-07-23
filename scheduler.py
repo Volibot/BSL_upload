@@ -770,6 +770,11 @@ def run_pipeline() -> dict:
                         sap_status = "Already in SAP"
                         sap_screen_error = sap_error.split("|", 1)[1] if "|" in sap_error else ""
                         log.warning(f"Candidate already exists in SAP: {cand_label}")
+                        if not screenshot_captured and bot:
+                            p = getattr(bot, "last_screenshot_path", None)
+                            if p and p.exists():
+                                failed_upload_attachments.append({"name": p.name, "content": p.read_bytes()})
+                                screenshot_captured = True
                         break
                     if any(err in sap_error.lower() for err in NON_CRITICAL_SAP_ERRORS):
                         sap_status = "Skipped"
