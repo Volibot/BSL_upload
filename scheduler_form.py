@@ -29,7 +29,7 @@ ROOT = Path(__file__).resolve().parent
 SRC  = ROOT / "src"
 sys.path.insert(0, str(SRC))
 
-from notifier import send_upload_notification
+from notifier import send_upload_notification, _upload_report_status
 from resume_repository import (
     _headers,
     download_resume,
@@ -181,13 +181,9 @@ def _add_result(by_recruiter, recruiter_email, file_name, status, error_msg="", 
 
 
 def _report_status(sap_status: str, sap_error: str = "") -> str:
-    if sap_status == "Succeeded":
-        return "Success"
-    if sap_status == "Already in SAP":
-        return "Already in SAP"
-    if "requisition id" in str(sap_error or "").lower() and "not found" in str(sap_error or "").lower():
-        return "Job id not found"
-    return "Failed"
+    if sap_status == "Failed":
+        return _upload_report_status(sap_error)
+    return _upload_report_status(sap_status)
 
 
 def _mark_skipped_silent(record_id: str) -> None:

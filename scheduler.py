@@ -885,8 +885,7 @@ def run_pipeline() -> dict:
             results_log.append({
                 "File":   file_name,
                 "Status": _upload_report_status(
-                    "Success" if sap_status == "Succeeded"
-                    else ("Already in SAP" if sap_status == "Already in SAP" else sap_error)
+                    sap_error if sap_status == "Failed" else sap_status
                 ),
                 "Error":  sap_screen_error,
             })
