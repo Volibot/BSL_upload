@@ -440,7 +440,7 @@ def run_pipeline() -> dict:
         t = err_text.lower()
         if "already exists in the system" in t and ("most recent resume" in t or "choose to upload" in t):
             return "Already uploaded by Volibits Team"
-        return "Duplicate – Please upload with alternate Mail ID"
+        return "Duplicate, if it's a subcon requirement. Please upload with an alternate Mail ID"
 
     def _start_bot():
         b = SAPBot()

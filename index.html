@@ -1202,7 +1202,7 @@
       "sap-ok":    ["Uploaded to Client Portal ✓",       "badge-done"],
       "sap-fail":  ["Client Portal Upload Failed",        "badge-error"],
       "sap-exists":["Already in Client Portal",                       "badge-uploading"],
-      "sap-dup":   ["Duplicate – Please upload with alternate Mail ID", "badge-error"],
+      "sap-dup":   ["Duplicate, if it's a subcon requirement. Please upload with an alternate Mail ID", "badge-error"],
       "sap-skip":  ["Skipped",                                          "badge-pending"],
     };
     const [label, cls] = map[status] || ["Pending","badge-pending"];
@@ -2722,7 +2722,7 @@ F. If text is garbled, watermarked, or name is unclear → output empty lines.${
 
   // ── SAP Polling ───────────────────────────────────────────────────────
   const SAP_TERMINAL       = ["Succeeded", "Failed", "Already in SAP", "Skipped",
-                              "Duplicate – Please upload with alternate Mail ID",
+                              "Duplicate, if it's a subcon requirement. Please upload with an alternate Mail ID",
                               "Already uploaded by Volibits Team"];
   const SAP_POLL_MS        = 25000;   // poll every 25 seconds
   const SAP_POLL_TIMEOUT_MS = 20 * 60 * 1000; // give up after 20 min
@@ -2732,7 +2732,7 @@ F. If text is garbled, watermarked, or name is unclear → output empty lines.${
     if (s === "Succeeded")                                    return "sap-ok";
     if (s === "Already in SAP")                               return "sap-exists";
     if (s === "Already uploaded by Volibits Team")            return "sap-exists";
-    if (s === "Duplicate – Please upload with alternate Mail ID") return "sap-dup";
+    if (s === "Duplicate, if it's a subcon requirement. Please upload with an alternate Mail ID") return "sap-dup";
     if (s === "Skipped")                                      return "sap-skip";
     if (s === "Failed")                                       return "sap-fail";
     return "sap-wait";

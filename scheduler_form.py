@@ -75,8 +75,14 @@ if _raw_record_ids and _raw_record_ids.strip() not in ("", "null"):
 NON_CRITICAL_SAP_ERRORS  = ["requisition id", "not found in job list"]
 DEAD_SESSION_ERRORS      = ["invalid session id", "no such session", "disconnected"]
 CANDIDATE_EXISTS_ERRORS  = ["candidate already exists in sap"]
-ALREADY_IN_SAP_PHRASES   = ["already exists", "ownership period"]
+ALREADY_IN_SAP_PHRASES   = ["already exists", "ownership period", "employee referral"]
 SAP_SUCCESS_MESSAGES     = ["candidate has been added"]
+
+def _classify_dup_status(err_text: str) -> str:
+    t = err_text.lower()
+    if "already exists in the system" in t and ("most recent resume" in t or "choose to upload" in t):
+        return "Already uploaded by Volibits Team"
+    return "Duplicate, if it's a subcon requirement. Please upload with an alternate Mail ID"
 
 BUCKET = "resumes"
 
@@ -310,9 +316,9 @@ def _process_chunk(records: list, submit_to_sap: bool) -> tuple[dict, dict]:
                 sap_error = str(e)
 
                 if any(err in sap_error.lower() for err in CANDIDATE_EXISTS_ERRORS):
-                    sap_status = "Already in SAP"
                     sap_screen_error = sap_error.split("|", 1)[1] if "|" in sap_error else ""
-                    log.warning(f"     ⚠ Candidate already exists in SAP: {cand_label}")
+                    sap_status = _classify_dup_status(sap_screen_error or sap_error)
+                    log.warning(f"     ⚠ Candidate exists ({sap_status}): {cand_label}")
                     break
 
                 if any(err in sap_error.lower() for err in NON_CRITICAL_SAP_ERRORS):
@@ -360,8 +366,8 @@ def _process_chunk(records: list, submit_to_sap: bool) -> tuple[dict, dict]:
 
         _err_text = (sap_screen_error or sap_error or "").lower()
         if sap_status == "Failed" and any(p in _err_text for p in ALREADY_IN_SAP_PHRASES):
-            sap_status = "Already in SAP"
-            log.info(f"     Reclassified as 'Already in SAP' based on: {sap_screen_error or sap_error}")
+            sap_status = _classify_dup_status(sap_screen_error or sap_error or "")
+            log.info(f"     Reclassified as '{sap_status}' based on: {sap_screen_error or sap_error}")
 
         if sap_status != "Succeeded" and not screenshot_captured and bot:
             try:
