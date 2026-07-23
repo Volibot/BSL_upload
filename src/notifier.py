@@ -100,10 +100,14 @@ def _upload_report_status(status: str) -> str:
     status_text = str(status or "").strip()
     status_lower = status_text.lower()
 
-    if status_text == "Success":
+    if status_text in ("Success", "Succeeded"):
         return "Success"
-    if "already in sap" in status_lower:
+    if "already in sap" in status_lower or status_text == "Already in Client Portal":
         return "Already in Client Portal"
+    if "already uploaded by volibits" in status_lower:
+        return "Already uploaded by Volibits Team"
+    if "duplicate" in status_lower:
+        return "Duplicate, if it's a subcon requirement. Please upload with an alternate Mail ID"
     if "job id not found" in status_lower:
         return "Job id not found"
     if "job not found" in status_lower:
@@ -113,6 +117,11 @@ def _upload_report_status(status: str) -> str:
     if "not found in job list" in status_lower:
         return "Job id not found"
     return "Failed"
+
+
+# Statuses that are not errors — just informational
+_INFO_STATUSES = {"Already in Client Portal", "Already uploaded by Volibits Team",
+                  "Duplicate, if it's a subcon requirement. Please upload with an alternate Mail ID"}
 
 
 def send_upload_notification(access_token, user, results, submit_mode, attachments=None, cc=None, is_external=False):
@@ -131,8 +140,8 @@ def send_upload_notification(access_token, user, results, submit_mode, attachmen
         for r in results
     ]
     success    = [r for r in display_results if r["Status"] == "Success"]
-    existing   = [r for r in display_results if r["Status"] == "Already in Client Portal"]
-    failed     = [r for r in display_results if r["Status"] not in ("Success", "Already in Client Portal")]
+    existing   = [r for r in display_results if r["Status"] in _INFO_STATUSES]
+    failed     = [r for r in display_results if r["Status"] not in {"Success"} | _INFO_STATUSES]
     mode_label = "Live Submit" if submit_mode else "Dry Run"
     IST = timezone(timedelta(hours=5, minutes=30))
     timestamp  = datetime.now(IST).strftime("%d %b %Y, %I:%M %p IST")
@@ -155,7 +164,7 @@ def send_upload_notification(access_token, user, results, submit_mode, attachmen
         status = r["Status"]
         if status == "Success":
             bg, icon = "#d4edda", "✅"
-        elif status == "Already in Client Portal":
+        elif status in _INFO_STATUSES:
             bg, icon = "#fff3cd", "⚠️"
         else:
             bg, icon = "#f8d7da", "❌"
@@ -187,7 +196,7 @@ def send_upload_notification(access_token, user, results, submit_mode, attachmen
     else:
         parts = []
         if success:  parts.append(f"{len(success)} uploaded")
-        if existing: parts.append(f"{len(existing)} already in SAP")
+        if existing: parts.append(f"{len(existing)} duplicate/already in portal")
         if failed:   parts.append(f"{len(failed)} failed")
         summary_text = ", ".join(parts) + "."
 
@@ -195,7 +204,7 @@ def send_upload_notification(access_token, user, results, submit_mode, attachmen
     if failed:
         failed_note = "<p style='margin-top:12px; color:#856404;'>Please refer to attached screenshots for more details.</p>"
     if existing:
-        failed_note += "<p style='margin-top:8px; color:#856404;'>⚠️ Candidates marked <strong>Already in Client Portal</strong> were found in the system — no action needed.</p>"
+        failed_note += "<p style='margin-top:8px; color:#856404;'>⚠️ Candidates marked as duplicate or already in the portal require no further action unless noted otherwise.</p>"
 
     html_body = f"""
     <html><body style='font-family: Segoe UI, Arial, sans-serif; color: #333; max-width: 600px; margin: auto'>
