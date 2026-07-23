@@ -117,40 +117,62 @@ class SAPBot:
                 }
                 function clean(t) { return (t || '').replace(/\\s+/g, ' ').trim(); }
 
+                // Strip boilerplate form text that follows the actual error message
+                var FORM_NOISE = [
+                    'Enter the candidate', 'indicates a mandatory field',
+                    'First Name', 'Last Name', 'Email Address', 'Select a resume',
+                    'Select File', 'I understand and agree',
+                ];
+                function stripNoise(t) {
+                    for (var marker of FORM_NOISE) {
+                        var idx = t.indexOf(marker);
+                        if (idx > 0) t = t.slice(0, idx);
+                    }
+                    return t.trim();
+                }
+
+                // 1. Toast messages
                 var toasts = Array.from(document.querySelectorAll('.sapMMessageToast')).filter(visible);
                 if (toasts.length) return clean(toasts[0].innerText).slice(0, 400);
 
-                var msgTextSelectors = [
-                    '.sapMDialog .sapMMessageStripMessage',
-                    '[role="dialog"] .sapMMessageStripMessage',
+                // 2. Specific message-strip text spans (most precise)
+                var stripTextSelectors = [
+                    '.sapMMessageStripMessage',
+                    '[class*="MessageStripMessage"]',
+                    '.sapMDialog .sapMMsgStripMessage',
                 ];
-                for (var sel of msgTextSelectors) {
+                for (var sel of stripTextSelectors) {
                     var els = Array.from(document.querySelectorAll(sel)).filter(visible);
                     if (els.length) { var t = clean(els[0].innerText); if (t) return t.slice(0, 400); }
                 }
 
-                var dialogStrips = Array.from(document.querySelectorAll(
-                    '.sapMDialog .sapMMessageStrip, [role="dialog"] .sapMMessageStrip'
+                // 3. Message strip containers (error/warning type preferred)
+                var allStrips = Array.from(document.querySelectorAll(
+                    '.sapMMessageStrip, [class*="sapMMessageStrip"]'
                 )).filter(visible);
-                for (var ds of dialogStrips) { var t = clean(ds.innerText); if (t) return t.slice(0, 200); }
-
-                var dialogs = Array.from(document.querySelectorAll('.sapMDialog, [role="alertdialog"]')).filter(visible);
-                for (var d of dialogs) {
-                    var titleEl = d.querySelector('.sapMDialogTitle, .sapMTitle');
-                    var title = titleEl ? clean(titleEl.innerText) : '';
-                    var cls = d.className || '';
-                    if (title && (cls.indexOf('Error') >= 0 || cls.indexOf('Warning') >= 0 ||
-                                  cls.indexOf('error') >= 0 || cls.indexOf('warning') >= 0))
-                        return title.slice(0, 400);
-                    var t = clean(d.innerText);
+                // Prefer error strips first
+                var errorStrips = allStrips.filter(function(el) {
+                    return /Error|Warning/i.test(el.className || '');
+                });
+                var strips = errorStrips.length ? errorStrips : allStrips;
+                for (var ds of strips) {
+                    var t = stripNoise(clean(ds.innerText));
                     if (t) return t.slice(0, 400);
                 }
 
-                var strips = Array.from(document.querySelectorAll('.sapMMessageStrip, [class*="sapMMessageStrip"]')).filter(visible);
-                for (var s of strips) { var t = clean(s.innerText); if (t) return t.slice(0, 400); }
-
+                // 4. role="alert" elements
                 var alerts = Array.from(document.querySelectorAll('[role="alert"]')).filter(visible);
-                for (var a of alerts) { var t = clean(a.innerText); if (t) return t.slice(0, 400); }
+                for (var a of alerts) {
+                    var t = stripNoise(clean(a.innerText));
+                    if (t) return t.slice(0, 400);
+                }
+
+                // 5. Full dialog fallback — strip noise before returning
+                var dialogs = Array.from(document.querySelectorAll('.sapMDialog, [role="alertdialog"]')).filter(visible);
+                for (var d of dialogs) {
+                    var t = stripNoise(clean(d.innerText));
+                    if (t) return t.slice(0, 400);
+                }
 
                 return '';
             }""")
