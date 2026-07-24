@@ -268,9 +268,10 @@
 
     /* Admin user list inside drawer */
     .admin-user-row {
-      display: flex; align-items: flex-start; justify-content: space-between;
+      display: flex; flex-direction: column; gap: 6px;
       padding: 10px 12px; border-bottom: 1px solid #f1f5f9; font-size: 13px;
     }
+    .admin-user-controls { display: flex; gap: 4px; align-items: center; flex-wrap: wrap; justify-content: flex-end; }
     .admin-user-row:last-child { border-bottom: none; }
     .admin-user-email { color: var(--text); font-size: 13px; }
     .admin-user-meta  { font-size: 11px; color: var(--muted); margin-top: 2px; }
@@ -2917,22 +2918,18 @@ F. If text is garbled, watermarked, or name is unclear → output empty lines.${
       ].filter(Boolean).join("");
       return `
         <div class="admin-user-row" style="${disabledStyle}">
-          <div style="flex:1;min-width:0;padding-top:2px;">
+          <div>
             <div class="admin-user-email">${esc(u.email)}</div>
-            ${badges ? `<div style="display:flex;flex-wrap:wrap;gap:4px;margin:4px 0 2px;">${badges}</div>` : ""}
+            ${badges ? `<div style="display:flex;flex-wrap:wrap;gap:4px;margin-top:4px;">${badges}</div>` : ""}
             <div class="admin-user-meta">${date ? `Added ${date}` : ""}${u.added_by ? ` by ${esc(u.added_by)}` : ""}</div>
           </div>
-          <div style="display:flex;gap:4px;flex-shrink:0;align-items:center;">
+          <div class="admin-user-controls">
             <select onchange="adminUpdateJrAccess('${esc(u.email)}', this.value)" style="font-size:11px;padding:3px 6px;border:1px solid var(--border);border-radius:5px;background:var(--light);color:var(--text);font-family:var(--font);">
               <option value="subcon" ${access === "subcon" ? "selected" : ""}>Subcon</option>
               <option value="all"    ${access === "all"    ? "selected" : ""}>All JRs</option>
             </select>
-            ${superAdmin ? `<button class="admin-remove-btn" onclick="adminToggleChatBlock('${esc(u.email)}', ${chatBlocked})" title="${chatBlocked ? "Unblock chat" : "Block chat"}" style="color:${chatBlocked ? "#22c55e" : "#f59e0b"}">
-              ${chatBlocked ? "💬 Unblock" : "🚫 Block Chat"}
-            </button>` : ""}
-            <button class="admin-remove-btn" onclick="adminToggleUser('${esc(u.email)}', ${active})" title="${active ? "Disable" : "Enable"}" style="color:${active ? "#f59e0b" : "#22c55e"}">
-              ${active ? "⏸ Disable" : "▶ Enable"}
-            </button>
+            ${superAdmin ? `<button class="admin-remove-btn" onclick="adminToggleChatBlock('${esc(u.email)}', ${chatBlocked})" title="${chatBlocked ? "Unblock chat" : "Block chat"}" style="color:${chatBlocked ? "#22c55e" : "#f59e0b"}">${chatBlocked ? "💬 Unblock" : "🚫 Block Chat"}</button>` : ""}
+            <button class="admin-remove-btn" onclick="adminToggleUser('${esc(u.email)}', ${active})" title="${active ? "Disable" : "Enable"}" style="color:${active ? "#f59e0b" : "#22c55e"}">${active ? "⏸ Disable" : "▶ Enable"}</button>
             <button class="admin-remove-btn" onclick="adminRemoveUser('${esc(u.email)}')" title="Remove permanently">✕</button>
           </div>
         </div>`;
