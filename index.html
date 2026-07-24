@@ -2888,6 +2888,9 @@ F. If text is garbled, watermarked, or name is unclear → output empty lines.${
   function _isAdmin(email) {
     return (ADMIN_EMAILS || []).some(a => a.toLowerCase() === email.toLowerCase());
   }
+  function _isSuperAdmin(email) {
+    return (SUPERADMIN_EMAILS || []).some(a => a.toLowerCase() === email.toLowerCase());
+  }
 
   function _renderAdminUsers(users) {
     const list = document.getElementById("admin-user-list");
@@ -2895,6 +2898,7 @@ F. If text is garbled, watermarked, or name is unclear → output empty lines.${
       list.innerHTML = `<div class="admin-empty">No users added yet.</div>`;
       return;
     }
+    const superAdmin = _isSuperAdmin(_getSession()?.email || "");
     list.innerHTML = users.map(u => {
       const date     = u.added_at ? new Date(u.added_at).toLocaleDateString("en-GB") : "";
       const active   = u.is_active !== false;
@@ -2920,9 +2924,9 @@ F. If text is garbled, watermarked, or name is unclear → output empty lines.${
               <option value="subcon" ${access === "subcon" ? "selected" : ""}>Subcon</option>
               <option value="all"    ${access === "all"    ? "selected" : ""}>All JRs</option>
             </select>
-            <button class="admin-remove-btn" onclick="adminToggleChatBlock('${esc(u.email)}', ${chatBlocked})" title="${chatBlocked ? "Unblock chat" : "Block chat"}" style="color:${chatBlocked ? "#22c55e" : "#f59e0b"}">
+            ${superAdmin ? `<button class="admin-remove-btn" onclick="adminToggleChatBlock('${esc(u.email)}', ${chatBlocked})" title="${chatBlocked ? "Unblock chat" : "Block chat"}" style="color:${chatBlocked ? "#22c55e" : "#f59e0b"}">
               ${chatBlocked ? "💬 Unblock" : "🚫 Block Chat"}
-            </button>
+            </button>` : ""}
             <button class="admin-remove-btn" onclick="adminToggleUser('${esc(u.email)}', ${active})" title="${active ? "Disable" : "Enable"}" style="color:${active ? "#f59e0b" : "#22c55e"}">
               ${active ? "⏸ Disable" : "▶ Enable"}
             </button>
@@ -2951,6 +2955,7 @@ F. If text is garbled, watermarked, or name is unclear → output empty lines.${
   }
 
   async function adminToggleChatBlock(email, currentlyBlocked) {
+    if (!_isSuperAdmin(_getSession()?.email || "")) { toast("Not authorised.", "err"); return; }
     const action = currentlyBlocked ? "unblock" : "block";
     if (!confirm(`${action.charAt(0).toUpperCase() + action.slice(1)} chat for ${email}?`)) return;
     try {
