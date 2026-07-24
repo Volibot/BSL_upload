@@ -813,6 +813,8 @@ def run_pipeline() -> dict:
                     except Exception:
                         pass
                     log.error(f"SAP upload failed (attempt {attempt + 1}): {sap_error}")
+                    if sap_screen_error:
+                        break
 
             # Reclassify Failed → specific VoliATS status based on SF error message
             _err_text = (sap_screen_error or sap_error or "").lower()

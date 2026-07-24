@@ -365,6 +365,9 @@ def _process_chunk(records: list, submit_to_sap: bool) -> tuple[dict, dict]:
                     failed_screenshots = []
                     break
 
+                if sap_screen_error:
+                    break
+
         _err_text = (sap_screen_error or sap_error or "").lower()
         if sap_status == "Failed" and any(p in _err_text for p in ALREADY_IN_SAP_PHRASES):
             sap_status = _classify_dup_status(sap_screen_error or sap_error or "")
