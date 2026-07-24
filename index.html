@@ -268,7 +268,7 @@
 
     /* Admin user list inside drawer */
     .admin-user-row {
-      display: flex; align-items: center; justify-content: space-between;
+      display: flex; align-items: flex-start; justify-content: space-between;
       padding: 10px 12px; border-bottom: 1px solid #f1f5f9; font-size: 13px;
     }
     .admin-user-row:last-child { border-bottom: none; }
@@ -2885,11 +2885,13 @@ F. If text is garbled, watermarked, or name is unclear → output empty lines.${
   }
 
   // ── Admin panel ───────────────────────────────────────────────────────
+  const SUPERADMIN_EMAILS = ["vamshipriya.konda@volibits.com"];
+
   function _isAdmin(email) {
     return (ADMIN_EMAILS || []).some(a => a.toLowerCase() === email.toLowerCase());
   }
   function _isSuperAdmin(email) {
-    return (SUPERADMIN_EMAILS || []).some(a => a.toLowerCase() === email.toLowerCase());
+    return SUPERADMIN_EMAILS.some(a => a.toLowerCase() === email.toLowerCase());
   }
 
   function _renderAdminUsers(users) {
@@ -2908,15 +2910,16 @@ F. If text is garbled, watermarked, or name is unclear → output empty lines.${
         ? `<span style="font-size:10px;font-weight:700;background:#dcfce7;color:#166534;padding:2px 7px;border-radius:10px;">All JRs</span>`
         : `<span style="font-size:10px;font-weight:700;background:#dbeafe;color:#1d4ed8;padding:2px 7px;border-radius:10px;">Subcon only</span>`;
       const disabledStyle = active ? "" : "opacity:.5;";
+      const badges = [
+        accessLabel,
+        !active ? `<span style="font-size:10px;font-weight:700;background:#fee2e2;color:#b91c1c;padding:2px 7px;border-radius:10px;">Disabled</span>` : "",
+        chatBlocked ? `<span style="font-size:10px;font-weight:700;background:#fef3c7;color:#92400e;padding:2px 7px;border-radius:10px;">Chat Blocked</span>` : "",
+      ].filter(Boolean).join("");
       return `
         <div class="admin-user-row" style="${disabledStyle}">
-          <div style="flex:1;min-width:0;">
-            <div class="admin-user-email" style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;">
-              ${esc(u.email)}
-              ${accessLabel}
-              ${!active ? `<span style="font-size:10px;font-weight:700;background:#fee2e2;color:#b91c1c;padding:2px 7px;border-radius:10px;">Disabled</span>` : ""}
-              ${chatBlocked ? `<span style="font-size:10px;font-weight:700;background:#fef3c7;color:#92400e;padding:2px 7px;border-radius:10px;">Chat Blocked</span>` : ""}
-            </div>
+          <div style="flex:1;min-width:0;padding-top:2px;">
+            <div class="admin-user-email">${esc(u.email)}</div>
+            ${badges ? `<div style="display:flex;flex-wrap:wrap;gap:4px;margin:4px 0 2px;">${badges}</div>` : ""}
             <div class="admin-user-meta">${date ? `Added ${date}` : ""}${u.added_by ? ` by ${esc(u.added_by)}` : ""}</div>
           </div>
           <div style="display:flex;gap:4px;flex-shrink:0;align-items:center;">
