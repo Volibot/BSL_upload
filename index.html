@@ -3496,7 +3496,7 @@ F. If text is garbled, watermarked, or name is unclear → output empty lines.${
   }
 
   async function _chatWidgetSend() {
-    if (_isChatBlocked(_chatUserEmail)) return;
+    if (_isChatBlocked(_chatUserEmail)) { toast("Unable to send message. Please try again later.", "err"); return; }
     const input = document.getElementById("chatInput");
     const msg   = input.value.trim();
     if (!msg && !_chatPendingFile) return;
