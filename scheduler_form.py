@@ -489,7 +489,7 @@ def run_pipeline() -> dict:
                 chunk_by_recruiter, counts = future.result()
                 for email, info in chunk_by_recruiter.items():
                     if email not in by_recruiter:
-                        by_recruiter[email] = {"results": [], "screenshots": []}
+                        by_recruiter[email] = {"results": [], "screenshots": [], "is_external": info.get("is_external", False)}
                     by_recruiter[email]["results"].extend(info["results"])
                     by_recruiter[email]["screenshots"].extend(info["screenshots"])
                 summary["done"]    += counts["done"]

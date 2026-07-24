@@ -920,6 +920,7 @@ def run_pipeline() -> dict:
                         submit_mode=SUBMIT_TO_SAP,
                         attachments=failed_upload_attachments,
                         cc=os.environ.get("EMAIL_CC", "").split(",") if os.environ.get("EMAIL_CC") else [],
+                        is_external=not str(from_email).lower().endswith("@volibits.com"),
                     )
                     if ok:
                         log.info(f"📧 Report sent to {from_email}")
@@ -960,6 +961,7 @@ def run_pipeline() -> dict:
                     submit_mode=SUBMIT_TO_SAP,
                     attachments=failed_upload_attachments,
                     cc=os.environ.get("EMAIL_CC", "").split(",") if os.environ.get("EMAIL_CC") else [],
+                    is_external=not str(from_email).lower().endswith("@volibits.com"),
                 )
                 if ok:
                     log.info(f"📧 Report sent to {from_email}")
