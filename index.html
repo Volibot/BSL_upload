@@ -3496,10 +3496,7 @@ F. If text is garbled, watermarked, or name is unclear → output empty lines.${
   }
 
   async function _chatWidgetSend() {
-    if (_isChatBlocked(_chatUserEmail)) {
-      toast("You have been blocked from sending chat messages.", "err");
-      return;
-    }
+    if (_isChatBlocked(_chatUserEmail)) return;
     const input = document.getElementById("chatInput");
     const msg   = input.value.trim();
     if (!msg && !_chatPendingFile) return;
@@ -3655,7 +3652,7 @@ F. If text is garbled, watermarked, or name is unclear → output empty lines.${
       const input = document.getElementById("chatInput");
       const btn   = document.getElementById("chatSendBtn");
       const attachBtn = document.getElementById("chatAttachBtn");
-      if (input) { input.disabled = true; input.placeholder = "You have been blocked from sending messages."; }
+      if (input) { input.disabled = true; input.placeholder = "Chat is currently unavailable."; }
       if (btn)   { btn.disabled = true; btn.style.opacity = ".4"; }
       if (attachBtn) attachBtn.disabled = true;
     }
