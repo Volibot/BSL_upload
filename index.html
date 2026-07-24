@@ -2901,7 +2901,7 @@ F. If text is garbled, watermarked, or name is unclear → output empty lines.${
       list.innerHTML = `<div class="admin-empty">No users added yet.</div>`;
       return;
     }
-    const superAdmin = _isSuperAdmin(_getSession()?.email || "");
+    const superAdmin = _isSuperAdminUser;
     list.innerHTML = users.map(u => {
       const date     = u.added_at ? new Date(u.added_at).toLocaleDateString("en-GB") : "";
       const active   = u.is_active !== false;
@@ -3307,6 +3307,7 @@ F. If text is garbled, watermarked, or name is unclear → output empty lines.${
   let _adminChatUser    = "";
   let _adminPollTimer   = null;
   let _isAdminUser      = false;
+  let _isSuperAdminUser = false;
 
   async function _chatUploadFile(file, userEmail) {
     const ext  = file.name.split(".").pop() || "png";
@@ -3661,7 +3662,8 @@ F. If text is garbled, watermarked, or name is unclear → output empty lines.${
   }
 
   async function initChat(email) {
-    _isAdminUser = ADMIN_EMAILS.includes(email.toLowerCase());
+    _isAdminUser      = ADMIN_EMAILS.includes(email.toLowerCase());
+    _isSuperAdminUser = SUPERADMIN_EMAILS.some(a => a.toLowerCase() === email.toLowerCase());
     if (!_isAdminUser) {
       // Regular user: show widget, hide admin chat button
       await _chatWidgetInit(email);
