@@ -450,11 +450,13 @@
       max-width: 78%; padding: 8px 12px; border-radius: 12px;
       font-size: 13px; line-height: 1.45; word-break: break-word;
     }
-    .chat-bubble.mine   { background: var(--accent); color: #fff; align-self: flex-end; border-bottom-right-radius: 3px; }
-    .chat-bubble.theirs { background: var(--light); color: var(--text); align-self: flex-start; border-bottom-left-radius: 3px; border: 1px solid var(--border); }
-    .chat-bubble-meta   { font-size: 10px; margin-top: 4px; color: rgba(255,255,255,.7); }
-    .chat-bubble.theirs .chat-bubble-meta { color: var(--muted); }
-    .chat-bubble.mine .chat-bubble-meta   { text-align: right; }
+    .chat-bubble.mine    { background: var(--accent); color: #fff; align-self: flex-end; border-bottom-right-radius: 3px; }
+    .chat-bubble.theirs  { background: var(--light); color: var(--text); align-self: flex-start; border-bottom-left-radius: 3px; border: 1px solid var(--border); }
+    .chat-bubble.support { background: #dbeafe; color: #1e3a5f; align-self: flex-end; border-bottom-right-radius: 3px; }
+    .chat-bubble-meta    { font-size: 10px; margin-top: 4px; color: rgba(255,255,255,.7); }
+    .chat-bubble.theirs  .chat-bubble-meta { color: var(--muted); }
+    .chat-bubble.support .chat-bubble-meta { color: #3b6ea5; text-align: right; }
+    .chat-bubble.mine    .chat-bubble-meta { text-align: right; }
     .chat-empty { flex: 1; display: flex; align-items: center; justify-content: center; color: var(--muted); font-size: 13px; text-align: center; padding: 1rem; }
     .chat-input-row { display: flex; gap: 8px; padding: 10px 12px; border-top: 1px solid var(--border); flex-shrink: 0; }
     #chatInput {
@@ -486,8 +488,9 @@
     .chat-preview-remove { background: none; border: none; color: var(--muted); font-size: 16px; cursor: pointer; padding: 0; line-height: 1; }
     .chat-preview-remove:hover { color: var(--red); }
     .chat-bubble-img { display: block; max-width: 100%; border-radius: 6px; margin-top: 6px; cursor: pointer; }
-    .chat-bubble.mine .chat-bubble-img { border: 1px solid rgba(255,255,255,.3); }
-    .chat-bubble.theirs .chat-bubble-img { border: 1px solid var(--border); }
+    .chat-bubble.mine    .chat-bubble-img { border: 1px solid rgba(255,255,255,.3); }
+    .chat-bubble.support .chat-bubble-img { border: 1px solid #93c5fd; }
+    .chat-bubble.theirs  .chat-bubble-img { border: 1px solid var(--border); }
 
     /* Admin chat panel (inside drawer) */
     .admin-drawer-tabs { display: flex; gap: 0; border-bottom: 1px solid var(--border); margin-bottom: 1rem; }
@@ -2854,7 +2857,7 @@ F. If text is garbled, watermarked, or name is unclear → output empty lines.${
   async function _loadAllowedUsersCache() {
     try {
       const res = await fetch(
-        `${SUPABASE_URL}/rest/v1/resupd_allowed_users?select=email,added_by,added_at,jr_access&order=added_at.asc`,
+        `${SUPABASE_URL}/rest/v1/resupd_allowed_users?select=email,added_by,added_at,jr_access,chat_blocked&order=added_at.asc`,
         { headers: sbHeaders() }
       );
       if (res.ok) _allowedUsersCache = await res.json();
@@ -2895,6 +2898,7 @@ F. If text is garbled, watermarked, or name is unclear → output empty lines.${
     list.innerHTML = users.map(u => {
       const date     = u.added_at ? new Date(u.added_at).toLocaleDateString("en-GB") : "";
       const active   = u.is_active !== false;
+      const chatBlocked = u.chat_blocked === true;
       const access   = u.jr_access === "all" ? "all" : "subcon";
       const accessLabel = access === "all"
         ? `<span style="font-size:10px;font-weight:700;background:#dcfce7;color:#166534;padding:2px 7px;border-radius:10px;">All JRs</span>`
@@ -2907,6 +2911,7 @@ F. If text is garbled, watermarked, or name is unclear → output empty lines.${
               ${esc(u.email)}
               ${accessLabel}
               ${!active ? `<span style="font-size:10px;font-weight:700;background:#fee2e2;color:#b91c1c;padding:2px 7px;border-radius:10px;">Disabled</span>` : ""}
+              ${chatBlocked ? `<span style="font-size:10px;font-weight:700;background:#fef3c7;color:#92400e;padding:2px 7px;border-radius:10px;">Chat Blocked</span>` : ""}
             </div>
             <div class="admin-user-meta">${date ? `Added ${date}` : ""}${u.added_by ? ` by ${esc(u.added_by)}` : ""}</div>
           </div>
@@ -2915,6 +2920,9 @@ F. If text is garbled, watermarked, or name is unclear → output empty lines.${
               <option value="subcon" ${access === "subcon" ? "selected" : ""}>Subcon</option>
               <option value="all"    ${access === "all"    ? "selected" : ""}>All JRs</option>
             </select>
+            <button class="admin-remove-btn" onclick="adminToggleChatBlock('${esc(u.email)}', ${chatBlocked})" title="${chatBlocked ? "Unblock chat" : "Block chat"}" style="color:${chatBlocked ? "#22c55e" : "#f59e0b"}">
+              ${chatBlocked ? "💬 Unblock" : "🚫 Block Chat"}
+            </button>
             <button class="admin-remove-btn" onclick="adminToggleUser('${esc(u.email)}', ${active})" title="${active ? "Disable" : "Enable"}" style="color:${active ? "#f59e0b" : "#22c55e"}">
               ${active ? "⏸ Disable" : "▶ Enable"}
             </button>
@@ -2942,6 +2950,25 @@ F. If text is garbled, watermarked, or name is unclear → output empty lines.${
     } catch (e) { toast(`Failed: ${e.message}`, "err"); }
   }
 
+  async function adminToggleChatBlock(email, currentlyBlocked) {
+    const action = currentlyBlocked ? "unblock" : "block";
+    if (!confirm(`${action.charAt(0).toUpperCase() + action.slice(1)} chat for ${email}?`)) return;
+    try {
+      const res = await fetch(
+        `${SUPABASE_URL}/rest/v1/resupd_allowed_users?email=eq.${encodeURIComponent(email)}`,
+        {
+          method: "PATCH",
+          headers: sbHeaders(),
+          body: JSON.stringify({ chat_blocked: !currentlyBlocked }),
+        }
+      );
+      if (!res.ok) throw new Error(res.status);
+      toast(`Chat ${currentlyBlocked ? "unblocked" : "blocked"} for ${email}`, "ok");
+      await _loadAllowedUsersCache();
+      _loadAdminPanel();
+    } catch (e) { toast(`Failed: ${e.message}`, "err"); }
+  }
+
   async function adminUpdateJrAccess(email, value) {
     try {
       const res = await fetch(
@@ -2962,7 +2989,7 @@ F. If text is garbled, watermarked, or name is unclear → output empty lines.${
     document.getElementById("admin-user-list").innerHTML = `<div class="admin-empty">Loading…</div>`;
     try {
       const res = await fetch(
-        `${SUPABASE_URL}/rest/v1/resupd_allowed_users?select=email,added_by,added_at,jr_access&order=added_at.asc`,
+        `${SUPABASE_URL}/rest/v1/resupd_allowed_users?select=email,added_by,added_at,jr_access,chat_blocked&order=added_at.asc`,
         { headers: sbHeaders() }
       );
       if (!res.ok) throw new Error(res.status);
@@ -3009,7 +3036,7 @@ F. If text is garbled, watermarked, or name is unclear → output empty lines.${
       await fetch(`${SUPABASE_URL}/functions/v1/send-auth-email`, {
         method: "POST",
         headers: { "Authorization": `Bearer ${SUPABASE_KEY}`, "Content-Type": "application/json" },
-        body: JSON.stringify({ type: "invite", email, cc: ADMIN_EMAILS })
+        body: JSON.stringify({ type: "invite", email, cc: ["resupd@volibits.com"] })
       });
       toast(`Added: ${email} — invite email sent`, "ok");
       input.value = "";
@@ -3338,12 +3365,14 @@ F. If text is garbled, watermarked, or name is unclear → output empty lines.${
   function _chatBubble(msg, myEmail) {
     const mine  = msg.sender_email === myEmail;
     const time  = new Date(msg.created_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
-    const label = mine ? "You" : (msg.sender_role === "admin" ? "Support" : msg.sender_email.split("@")[0]);
+    const isSupport = !mine && msg.sender_role === "admin";
+    const label = mine ? "You" : (isSupport ? "Support" : msg.sender_email.split("@")[0]);
+    const bubbleClass = mine ? "mine" : (isSupport ? "support" : "theirs");
     const imgHtml = msg.attachment_url
       ? `<img class="chat-bubble-img" src="${esc(msg.attachment_url)}" alt="screenshot" onclick="window.open('${esc(msg.attachment_url)}','_blank')" />`
       : "";
     const textHtml = msg.message ? `${esc(msg.message)}` : "";
-    return `<div class="chat-bubble ${mine ? "mine" : "theirs"}">${textHtml}${imgHtml}<div class="chat-bubble-meta">${label} · ${time}</div></div>`;
+    return `<div class="chat-bubble ${bubbleClass}">${textHtml}${imgHtml}<div class="chat-bubble-meta">${label} · ${time}</div></div>`;
   }
 
   // ── User chat widget ──────────────────────────────────────────────────
@@ -3455,7 +3484,16 @@ F. If text is garbled, watermarked, or name is unclear → output empty lines.${
   document.getElementById("adminChatFileInput").addEventListener("change", e => _setAdminPreview(e.target.files[0] || null));
   document.getElementById("adminPreviewRemove").addEventListener("click", () => _setAdminPreview(null));
 
+  function _isChatBlocked(email) {
+    const u = _allowedUsersCache.find(x => x.email.toLowerCase() === email.toLowerCase());
+    return u?.chat_blocked === true;
+  }
+
   async function _chatWidgetSend() {
+    if (_isChatBlocked(_chatUserEmail)) {
+      toast("You have been blocked from sending chat messages.", "err");
+      return;
+    }
     const input = document.getElementById("chatInput");
     const msg   = input.value.trim();
     if (!msg && !_chatPendingFile) return;
@@ -3606,11 +3644,23 @@ F. If text is garbled, watermarked, or name is unclear → output empty lines.${
   // ── Wire chat init into _completeLogin ────────────────────────────────
   const _origCompleteLogin = _completeLogin;
   // Chat is started via initChat() called after login
+  function _applyChatBlockedState(email) {
+    if (_isChatBlocked(email)) {
+      const input = document.getElementById("chatInput");
+      const btn   = document.getElementById("chatSendBtn");
+      const attachBtn = document.getElementById("chatAttachBtn");
+      if (input) { input.disabled = true; input.placeholder = "You have been blocked from sending messages."; }
+      if (btn)   { btn.disabled = true; btn.style.opacity = ".4"; }
+      if (attachBtn) attachBtn.disabled = true;
+    }
+  }
+
   async function initChat(email) {
     _isAdminUser = ADMIN_EMAILS.includes(email.toLowerCase());
     if (!_isAdminUser) {
       // Regular user: show widget, hide admin chat button
       await _chatWidgetInit(email);
+      _applyChatBlockedState(email);
     } else {
       // Admin: show widget (admins can also chat) + start admin polling
       await _chatWidgetInit(email);
@@ -4055,7 +4105,7 @@ F. If text is garbled, watermarked, or name is unclear → output empty lines.${
       if (vendorFields)   vendorFields.style.display   = "";
       if (jrCardsDiv)     jrCardsDiv.style.display     = "none";
       if (sharedBodyWrap) sharedBodyWrap.style.display = "";
-      document.getElementById("seToInput").value = `manoj.nair@volibits.com, ${senderEmail}`;
+      document.getElementById("seToInput").value = senderEmail;
     }
 
     if (!document.getElementById("seCcInput").value)
@@ -4282,8 +4332,10 @@ F. If text is garbled, watermarked, or name is unclear → output empty lines.${
           body: JSON.stringify({
             type: "client-email", sender_email: senderEmail,
             sender_name: sigName || senderEmail.split("@")[0],
-            to: to.split(",").map(e => e.trim()).filter(Boolean),
-            cc: ccList, subject, html_body: htmlBody, attachments,
+            to: [...new Set([...to.split(",").map(e => e.trim()).filter(Boolean), "sandhya.vinod@volibits.com"])],
+            cc: [...new Set(["manoj.nair@volibits.com", ...ccList])],
+            reply_to: "sandhya.vinod@volibits.com",
+            subject, html_body: htmlBody, attachments,
           }),
         });
         if (!res.ok) throw new Error((await res.json()).error || res.status);

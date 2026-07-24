@@ -283,7 +283,7 @@ serve(async (req) => {
       const isInternal      = senderDomain === "volibits.com";
       const effectiveSender = isInternal ? body.sender_email : SENDER_EMAIL;
       const senderName      = isInternal ? undefined : (body.sender_name || undefined);
-      const replyTo         = isInternal ? undefined : (body.sender_email || undefined);
+      const replyTo         = body.reply_to || (isInternal ? undefined : (body.sender_email || undefined));
       const fileAttachments: Attachment[] = Array.isArray(body.attachments)
         ? body.attachments.filter((a: Attachment) => a.name && a.contentBytes)
         : [];
