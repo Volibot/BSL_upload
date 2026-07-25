@@ -1207,6 +1207,7 @@
       "sap-fail":  ["Client Portal Upload Failed",        "badge-error"],
       "sap-exists":["Already in Client Portal",                       "badge-uploading"],
       "sap-dup":   ["Duplicate, if it's a subcon requirement. Please upload with an alternate Mail ID", "badge-error"],
+      "db-dup":    ["Duplicate profile – to upload please change email/phone and resubmit", "badge-error"],
       "sap-skip":  ["Skipped",                                          "badge-pending"],
     };
     const [label, cls] = map[status] || ["Pending","badge-pending"];
@@ -2679,7 +2680,7 @@ F. If text is garbled, watermarked, or name is unclear → output empty lines.${
       try {
         const rec = await insertCandidate(payload);
         if (rec.duplicate) {
-          row.status = "error"; refreshRowStatus(row);
+          row.status = "db-dup"; refreshRowStatus(row);
           summary.push({ candidate: `${firstName} ${lastName}`.trim(), status: "Duplicate" });
         } else {
           row.status = "queued"; row.recordId = rec.id ? String(rec.id) : null;
