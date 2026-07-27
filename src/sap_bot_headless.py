@@ -226,10 +226,26 @@ class SAPBot:
         self.screenshot_counter += 1
         path = self.screenshot_dir / f"{self.screenshot_counter:02d}_{name}.png"
         try:
-            dialogs = self.page.query_selector_all('.sapMDialog, [role="dialog"]')
-            visible = next((d for d in dialogs if d.is_visible()), None)
-            if visible:
-                visible.screenshot(path=str(path))
+            box = self.page.evaluate("""() => {
+                function vis(el) {
+                    if (!el) return false;
+                    var s = window.getComputedStyle(el);
+                    if (s.display === 'none' || s.visibility === 'hidden' || parseFloat(s.opacity) < 0.1) return false;
+                    var r = el.getBoundingClientRect();
+                    return r.width > 0 && r.height > 0;
+                }
+                var all = Array.from(document.querySelectorAll('.sapMDialog, [role="dialog"]')).filter(vis);
+                var d = all.find(function(el) {
+                    var t = (el.innerText || '').toLowerCase();
+                    return t.indexOf('submit existing') >= 0 || t.indexOf('already exists') >= 0;
+                }) || all[0];
+                if (!d) return null;
+                var r = d.getBoundingClientRect();
+                return {x: Math.max(0, Math.round(r.x)), y: Math.max(0, Math.round(r.y)),
+                        width: Math.round(r.width), height: Math.round(r.height)};
+            }""")
+            if box and box.get("width", 0) > 0:
+                self.page.screenshot(path=str(path), clip=box)
             else:
                 self.page.screenshot(path=str(path))
         except Exception:
