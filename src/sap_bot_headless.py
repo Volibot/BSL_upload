@@ -226,9 +226,10 @@ class SAPBot:
         self.screenshot_counter += 1
         path = self.screenshot_dir / f"{self.screenshot_counter:02d}_{name}.png"
         try:
-            dialog = self.page.query_selector(".sapMDialog[role='dialog'], .sapMDialog, [role='dialog']")
-            if dialog and dialog.is_visible():
-                dialog.screenshot(path=str(path))
+            dialogs = self.page.query_selector_all('.sapMDialog, [role="dialog"]')
+            visible = next((d for d in dialogs if d.is_visible()), None)
+            if visible:
+                visible.screenshot(path=str(path))
             else:
                 self.page.screenshot(path=str(path))
         except Exception:
