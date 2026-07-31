@@ -169,24 +169,24 @@ def send_upload_notification(access_token, user, results, submit_mode, attachmen
         else:
             bg, icon = "#f8d7da", "❌"
 
+        _td = "padding:6px 8px; border:1px solid #dee2e6; word-break:break-word; vertical-align:top"
         cr_td = (
-            f"<td style='padding:8px 12px; border:1px solid #dee2e6'>{r.get('Client Recruiter') or '—'}</td>"
+            f"<td style='{_td}'>{r.get('Client Recruiter') or '—'}</td>"
             if show_client_recruiter else ""
         )
         error_td = ""
         if has_errors:
             err_text = r.get("Error", "") or ""
             error_td = (
-                f"<td style='padding:8px 12px; border:1px solid #dee2e6; "
-                f"color:#721c24; font-size:12px'>{err_text or '—'}</td>"
+                f"<td style='{_td}; color:#721c24'>{err_text or '—'}</td>"
             )
         rows_html += f"""
         <tr style='background:{bg}'>
-            <td style='padding:8px 12px; border:1px solid #dee2e6'>{r.get('JR No') or '—'}</td>
-            <td style='padding:8px 12px; border:1px solid #dee2e6'>{r['File']}</td>
-            <td style='padding:8px 12px; border:1px solid #dee2e6'>{icon} {status}</td>
+            <td style='{_td}'>{r.get('JR No') or '—'}</td>
+            <td style='{_td}'>{r['File']}</td>
+            <td style='{_td}'>{icon} {status}</td>
             {cr_td}
-            <td style='padding:8px 12px; border:1px solid #dee2e6'>{r.get('Skill') or '—'}</td>
+            <td style='{_td}'>{r.get('Skill') or '—'}</td>
             {error_td}
         </tr>"""
 
@@ -207,9 +207,9 @@ def send_upload_notification(access_token, user, results, submit_mode, attachmen
         failed_note += "<p style='margin-top:8px; color:#856404;'>⚠️ Candidates marked as duplicate or already in the portal require no further action unless noted otherwise.</p>"
 
     html_body = f"""
-    <html><body style='font-family: Segoe UI, Arial, sans-serif; color: #333; max-width: 600px; margin: auto'>
+    <html><body style='font-family: Segoe UI, Arial, sans-serif; color: #333; max-width: 860px; margin: auto'>
         <div style='background:#0078d4; padding:24px; border-radius:8px 8px 0 0'>
-            <h2 style='color:white; margin:0'>📄 Client Portal Upload Report</h2>
+            <h2 style='color:white; margin:0'>&#128196; Client Portal Upload Report</h2>
             <p style='color:#cce4ff; margin:4px 0 0'>{timestamp} &nbsp;·&nbsp; {mode_label}</p>
         </div>
         <div style='border:1px solid #dee2e6; border-top:none; padding:24px; border-radius:0 0 8px 8px'>
@@ -219,21 +219,29 @@ def send_upload_notification(access_token, user, results, submit_mode, attachmen
                 {summary_text}
             </div>
             {failed_note}
-            <table style='width:100%; border-collapse:collapse; margin-top:16px'>
+            <table style='width:100%; border-collapse:collapse; margin-top:16px; font-size:12px; table-layout:fixed'>
+                <colgroup>
+                    <col style='width:70px'>
+                    <col style='width:200px'>
+                    <col style='width:140px'>
+                    {"<col style='width:110px'>" if show_client_recruiter else ""}
+                    <col style='width:140px'>
+                    {"<col style='width:180px'>" if has_errors else ""}
+                </colgroup>
                 <thead>
                     <tr style='background:#f8f9fa'>
-                        <th style='padding:8px 12px; border:1px solid #dee2e6; text-align:left'>JR No</th>
-                        <th style='padding:8px 12px; border:1px solid #dee2e6; text-align:left'>File</th>
-                        <th style='padding:8px 12px; border:1px solid #dee2e6; text-align:left'>Status</th>
-                        {"<th style='padding:8px 12px; border:1px solid #dee2e6; text-align:left'>Client Recruiter</th>" if show_client_recruiter else ""}
-                        <th style='padding:8px 12px; border:1px solid #dee2e6; text-align:left'>Role</th>
-                        {"<th style='padding:8px 12px; border:1px solid #dee2e6; text-align:left'>Error Details</th>" if has_errors else ""}
+                        <th style='padding:6px 8px; border:1px solid #dee2e6; text-align:left; word-break:break-word'>JR No</th>
+                        <th style='padding:6px 8px; border:1px solid #dee2e6; text-align:left; word-break:break-word'>File</th>
+                        <th style='padding:6px 8px; border:1px solid #dee2e6; text-align:left; word-break:break-word'>Status</th>
+                        {"<th style='padding:6px 8px; border:1px solid #dee2e6; text-align:left; word-break:break-word'>Client Recruiter</th>" if show_client_recruiter else ""}
+                        <th style='padding:6px 8px; border:1px solid #dee2e6; text-align:left; word-break:break-word'>Role</th>
+                        {"<th style='padding:6px 8px; border:1px solid #dee2e6; text-align:left; word-break:break-word'>Error Details</th>" if has_errors else ""}
                     </tr>
                 </thead>
                 <tbody>{rows_html}</tbody>
             </table>
             <p style='color:gray; font-size:12px; margin-top:24px'>
-                Sent automatically by the Resume Upload → Client Portal tool.
+                Sent automatically by the Resume Upload &rarr; Client Portal tool.
             </p>
         </div>
     </body></html>
