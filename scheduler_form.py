@@ -108,6 +108,16 @@ def _patch_record(record_id: str, fields: dict) -> None:
 
 
 def _start_bot() -> SAPBot:
+    import asyncio
+    # Playwright sync API raises if asyncio detects a running loop in this thread.
+    # ThreadPoolExecutor workers on Python 3.12 can inherit or create loop state
+    # from the parent context. Reset both the C-level running-loop slot and the
+    # policy-level current loop so Playwright's check always sees a clean thread.
+    try:
+        asyncio.events._set_running_loop(None)
+    except AttributeError:
+        pass
+    asyncio.set_event_loop(asyncio.new_event_loop())
     b = SAPBot()
     b.start()
     b.login()

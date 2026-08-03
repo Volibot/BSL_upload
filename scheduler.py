@@ -443,6 +443,12 @@ def run_pipeline() -> dict:
         return "Duplicate, if it's a subcon requirement. Please upload with an alternate Mail ID"
 
     def _start_bot():
+        import asyncio
+        try:
+            asyncio.events._set_running_loop(None)
+        except AttributeError:
+            pass
+        asyncio.set_event_loop(asyncio.new_event_loop())
         b = SAPBot()
         b.start()
         b.login()
