@@ -112,12 +112,15 @@ def _upload_report_status(status: str) -> str:
         return "Job id not found"
     if "not found in job list" in status_lower:
         return "Job id not found"
+    if status_lower == "pending":
+        return "Pending – Will Retry"
     return "Failed"
 
 
 # Statuses that are not errors — just informational
 _INFO_STATUSES = {"Already in Client Portal", "Already uploaded by Volibits Team",
-                  "Duplicate, if it's a subcon requirement. Please upload with an alternate Mail ID"}
+                  "Duplicate, if it's a subcon requirement. Please upload with an alternate Mail ID",
+                  "Pending – Will Retry"}
 
 
 def send_upload_notification(access_token, user, results, submit_mode, attachments=None, cc=None, is_external=False):
@@ -136,7 +139,8 @@ def send_upload_notification(access_token, user, results, submit_mode, attachmen
         for r in results
     ]
     success    = [r for r in display_results if r["Status"] == "Success"]
-    existing   = [r for r in display_results if r["Status"] in _INFO_STATUSES]
+    pending    = [r for r in display_results if r["Status"] == "Pending – Will Retry"]
+    existing   = [r for r in display_results if r["Status"] in _INFO_STATUSES and r["Status"] != "Pending – Will Retry"]
     failed     = [r for r in display_results if r["Status"] not in {"Success"} | _INFO_STATUSES]
     mode_label = "Live Submit" if submit_mode else "Dry Run"
     IST = timezone(timedelta(hours=5, minutes=30))
@@ -154,12 +158,15 @@ def send_upload_notification(access_token, user, results, submit_mode, attachmen
         jr_label = ", ".join(jr_nos[:3]) + f" +{len(jr_nos) - 3} more"
 
     # Build results table rows
-    has_errors = any(r.get("Error", "").strip() for r in display_results if r["Status"] != "Success")
+    has_errors = any(r.get("Error", "").strip() for r in display_results
+                     if r["Status"] not in {"Success", "Pending – Will Retry"})
     rows_html = ""
     for r in display_results:
         status = r["Status"]
         if status == "Success":
             bg, icon = "#d4edda", "✅"
+        elif status == "Pending – Will Retry":
+            bg, icon = "#e8f4fd", "🔄"
         elif status in _INFO_STATUSES:
             bg, icon = "#fff3cd", "⚠️"
         else:
@@ -186,13 +193,14 @@ def send_upload_notification(access_token, user, results, submit_mode, attachmen
             {error_td}
         </tr>"""
 
-    summary_bg   = "#d4edda" if not failed and not existing else "#fff3cd"
-    if not failed and not existing:
+    summary_bg   = "#d4edda" if not failed and not existing and not pending else "#fff3cd"
+    if not failed and not existing and not pending:
         summary_text = f"All {len(success)} candidates uploaded successfully! 🎉"
     else:
         parts = []
         if success:  parts.append(f"{len(success)} uploaded")
         if existing: parts.append(f"{len(existing)} duplicate/already in portal")
+        if pending:  parts.append(f"{len(pending)} pending retry")
         if failed:   parts.append(f"{len(failed)} failed")
         summary_text = ", ".join(parts) + "."
 
@@ -201,6 +209,8 @@ def send_upload_notification(access_token, user, results, submit_mode, attachmen
         failed_note = "<p style='margin-top:12px; color:#856404;'>Please refer to attached screenshots for more details.</p>"
     if existing:
         failed_note += "<p style='margin-top:8px; color:#856404;'>⚠️ Candidates marked as duplicate or already in the portal require no further action unless noted otherwise.</p>"
+    if pending:
+        failed_note += "<p style='margin-top:8px; color:#1a6496;'>🔄 Resumes marked as <strong>Pending – Will Retry</strong> could not be uploaded this time due to a temporary Client Portal unavailability. They will be retried automatically and you will receive an update once done.</p>"
 
     html_body = f"""
     <html><body style='font-family: Segoe UI, Arial, sans-serif; color: #333; max-width: 860px; margin: auto'>

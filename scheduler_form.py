@@ -295,7 +295,8 @@ def _process_chunk(records: list, submit_to_sap: bool) -> tuple[dict, dict]:
         if not bot:
             log.warning("     SAP bot unavailable - leaving record Pending")
             counts["skipped"] += 1
-            _add_result(by_recruiter, recruiter_email, file_name, "Failed",
+            _add_result(by_recruiter, recruiter_email, file_name, "Pending",
+                        error_msg="Client Portal temporarily unavailable. Your resume will be uploaded automatically — we'll share the status once it's done.",
                         jr_no=jr_no, client_recruiter=client_recruiter, skill=skill)
             continue
 
