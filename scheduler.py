@@ -767,8 +767,8 @@ def run_pipeline() -> dict:
                     sap_error = str(e)
                     sap_status = "Failed"
                     if any(err in sap_error.lower() for err in CANDIDATE_EXISTS_ERRORS):
-                        sap_status = "Already in SAP"
                         sap_screen_error = sap_error.split("|", 1)[1] if "|" in sap_error else ""
+                        sap_status = _classify_dup_status(sap_screen_error or sap_error)
                         log.warning(f"Candidate already exists in SAP: {cand_label}")
                         if not screenshot_captured and bot:
                             p = getattr(bot, "last_screenshot_path", None)
@@ -894,7 +894,7 @@ def run_pipeline() -> dict:
                 "Status": _upload_report_status(
                     sap_error if sap_status == "Failed" else sap_status
                 ),
-                "Error":  sap_screen_error,
+                "Error":  sap_screen_error or sap_error,
             })
 
             # Mark email as read + move after all candidates processed

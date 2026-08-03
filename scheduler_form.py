@@ -420,7 +420,7 @@ def _process_chunk(records: list, submit_to_sap: bool) -> tuple[dict, dict]:
         _add_result(
             by_recruiter, recruiter_email, file_name,
             _report_status(sap_status, sap_error),
-            error_msg=sap_screen_error,
+            error_msg=sap_screen_error or sap_error,
             screenshots=failed_screenshots,
             jr_no=jr_no,
             client_recruiter=client_recruiter,
