@@ -2859,7 +2859,7 @@ F. If text is garbled, watermarked, or name is unclear → output empty lines.${
   async function _loadAllowedUsersCache() {
     try {
       const res = await fetch(
-        `${SUPABASE_URL}/rest/v1/resupd_allowed_users?select=email,added_by,added_at,jr_access,chat_blocked&order=added_at.asc`,
+        `${SUPABASE_URL}/rest/v1/resupd_allowed_users?select=email,added_by,added_at,jr_access,is_active,chat_blocked&order=added_at.asc`,
         { headers: sbHeaders() }
       );
       if (res.ok) _allowedUsersCache = await res.json();
@@ -2995,7 +2995,7 @@ F. If text is garbled, watermarked, or name is unclear → output empty lines.${
     document.getElementById("admin-user-list").innerHTML = `<div class="admin-empty">Loading…</div>`;
     try {
       const res = await fetch(
-        `${SUPABASE_URL}/rest/v1/resupd_allowed_users?select=email,added_by,added_at,jr_access,chat_blocked&order=added_at.asc`,
+        `${SUPABASE_URL}/rest/v1/resupd_allowed_users?select=email,added_by,added_at,jr_access,is_active,chat_blocked&order=added_at.asc`,
         { headers: sbHeaders() }
       );
       if (!res.ok) throw new Error(res.status);

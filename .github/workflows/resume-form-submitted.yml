@@ -6,7 +6,7 @@ on:
   repository_dispatch:
     types: [resume-form-submitted]
   schedule:
-    - cron: '*/5 * * * *'     # every 6 hours — safety net for missed dispatches
+    - cron: '*/5 * * * *'     # every 5 minutes — safety net for missed dispatches
   workflow_dispatch:           # allow manual trigger from Actions tab
 
 jobs:
