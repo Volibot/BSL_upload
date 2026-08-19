@@ -2020,6 +2020,12 @@ F. If text is garbled, watermarked, or name is unclear → output empty lines.${
       }
     }
 
+    // Filename fallback: last resort when all AI and rule-based extraction fails
+    if (!first) {
+      const fnResult = _extractNameFromFilename(file.name);
+      if (fnResult.first) { first = fnResult.first; last = fnResult.last; }
+    }
+
     return { first_name: first, last_name: last, email, phone };
   }
 
