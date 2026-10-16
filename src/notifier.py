@@ -81,7 +81,7 @@ def _upload_report_status(status: str) -> str:
     if "already uploaded by volibits" in status_lower:
         return "Already uploaded by Volibits Team"
     if "duplicate" in status_lower:
-        return "Duplicate, if it's a subcon requirement. Please upload with an alternate Mail ID"
+        return "Duplicate, if it's a subcon requirement. Please upload with an alternate Mail ID and DO NOT upload duplicate mail id’s for full time requirements. "
     if "job id not found" in status_lower:
         return "Job id not found"
     if "job not found" in status_lower:
@@ -97,7 +97,7 @@ def _upload_report_status(status: str) -> str:
 
 # Statuses that are not errors — just informational
 _INFO_STATUSES = {"Already in Client Portal", "Already uploaded by Volibits Team",
-                  "Duplicate, if it's a subcon requirement. Please upload with an alternate Mail ID",
+                  "Duplicate, if it's a subcon requirement. Please upload with an alternate Mail ID and DO NOT upload duplicate mail id’s for full time requirements. ",
                   "Pending – Will Retry"}
 
 

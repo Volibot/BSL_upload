@@ -82,7 +82,7 @@ def _classify_dup_status(err_text: str) -> str:
     t = err_text.lower()
     if "already exists in the system" in t and ("most recent resume" in t or "choose to upload" in t):
         return "Already uploaded by Volibits Team"
-    return "Duplicate, if it's a subcon requirement. Please upload with an alternate Mail ID"
+    return "Duplicate, if it's a subcon requirement. Please upload with an alternate Mail ID and DO NOT upload duplicate mail id’s for full time requirements."
 
 BUCKET = "resumes"
 
